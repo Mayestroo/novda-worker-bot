@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: novda-worker-bot
+    env: python
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "python bot.py"
+    envVars:
+      - key: WORKER_BOT_TOKEN
+        sync: false
+      - key: DEFAULT_COMPANY_ID
+        value: "comp_novda"
+      - key: PORT
+        value: "10000"

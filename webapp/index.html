@@ -1,0 +1,1095 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>Mening Hisobim — Shaxsiy Xodim Portali</title>
+  
+  <!-- Telegram WebApp SDK -->
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  
+  <!-- Modern Google Font -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --font-main: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      --bg-primary: var(--tg-theme-bg-color, #0b0f19);
+      --bg-secondary: var(--tg-theme-secondary-bg-color, #111827);
+      --bg-card: rgba(22, 31, 48, 0.85);
+      --bg-card-hover: rgba(30, 42, 65, 0.95);
+      --text-primary: var(--tg-theme-text-color, #f8fafc);
+      --text-secondary: var(--tg-theme-hint-color, #94a3b8);
+      --text-muted: #64748b;
+      --accent: #38bdf8;
+      --accent-glow: rgba(56, 189, 248, 0.25);
+      --success: #10b981;
+      --success-glow: rgba(16, 185, 129, 0.2);
+      --warning: #f59e0b;
+      --warning-glow: rgba(245, 158, 11, 0.15);
+      --danger: #ef4444;
+      --danger-glow: rgba(239, 68, 68, 0.2);
+      --purple: #8b5cf6;
+      --border: rgba(255, 255, 255, 0.08);
+      --border-accent: rgba(56, 189, 248, 0.3);
+      --card-radius: 18px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+
+    body {
+      font-family: var(--font-main);
+      background-color: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+      overflow-x: hidden;
+      padding-bottom: 30px;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Top Glass App Bar */
+    .top-bar {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(11, 15, 25, 0.9);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 16px;
+    }
+
+    .header-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .worker-profile-brief {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+    }
+
+    .avatar-badge {
+      width: 44px;
+      height: 44px;
+      border-radius: 14px;
+      background: linear-gradient(135deg, #10b981, #059669);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      color: white;
+      font-weight: 800;
+      box-shadow: 0 4px 14px var(--success-glow);
+      flex-shrink: 0;
+    }
+
+    .worker-meta {
+      min-width: 0;
+    }
+
+    .worker-name-title {
+      font-size: 15px;
+      font-weight: 800;
+      color: var(--text-primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      line-height: 1.2;
+    }
+
+    .worker-id-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: rgba(56, 189, 248, 0.15);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      color: var(--accent);
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 8px;
+      margin-top: 3px;
+    }
+
+    .action-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .icon-btn {
+      width: 38px;
+      height: 38px;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--border);
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 16px;
+      transition: all 0.2s ease;
+    }
+
+    .icon-btn:active {
+      transform: scale(0.92);
+      background: rgba(255, 255, 255, 0.12);
+    }
+
+    .icon-btn.spinning svg {
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    /* Container */
+    .container {
+      max-width: 580px;
+      margin: 0 auto;
+      padding: 14px 16px;
+    }
+
+    /* Period Ribbon */
+    .period-strip {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 8px 12px;
+      margin-bottom: 14px;
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    .period-badge-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      background: var(--success-glow);
+      color: var(--success);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      padding: 3px 8px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .period-badge-status::before {
+      content: "";
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--success);
+      box-shadow: 0 0 8px var(--success);
+    }
+
+    /* Hero Net Pay Card */
+    .hero-kpi-card {
+      background: linear-gradient(145deg, rgba(16, 185, 129, 0.12) 0%, rgba(22, 31, 48, 0.95) 100%);
+      border: 1.5px solid rgba(16, 185, 129, 0.4);
+      border-radius: var(--card-radius);
+      padding: 20px 18px;
+      margin-bottom: 16px;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 12px 28px -8px rgba(16, 185, 129, 0.18), 0 6px 12px -4px rgba(0, 0, 0, 0.3);
+    }
+
+    .hero-kpi-card::after {
+      content: "";
+      position: absolute;
+      top: -30px;
+      right: -30px;
+      width: 110px;
+      height: 110px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(16, 185, 129, 0.25) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .hero-label {
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      color: var(--success);
+      text-transform: uppercase;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 6px;
+    }
+
+    .hero-amount {
+      font-size: 32px;
+      font-weight: 800;
+      color: #ffffff;
+      letter-spacing: -0.5px;
+      line-height: 1.15;
+      margin-bottom: 6px;
+    }
+
+    .hero-amount.negative {
+      color: var(--danger);
+    }
+
+    .hero-subtitle {
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-bottom: 16px;
+    }
+
+    /* Sub-grid under hero */
+    .hero-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      padding-top: 14px;
+    }
+
+    .hero-grid-item {
+      background: rgba(0, 0, 0, 0.22);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 12px;
+      padding: 10px 12px;
+    }
+
+    .hero-grid-label {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-bottom: 3px;
+      font-weight: 600;
+    }
+
+    .hero-grid-val {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    .hero-grid-val.gross { color: #38bdf8; }
+    .hero-grid-val.avans { color: #f59e0b; }
+    .hero-grid-val.jarima { color: #ef4444; }
+    .hero-grid-val.staj { color: #a78bfa; }
+
+    /* Navigation Pills / Tabs */
+    .nav-tabs {
+      display: flex;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 4px;
+      margin-bottom: 16px;
+      gap: 4px;
+    }
+
+    .nav-tab-btn {
+      flex: 1;
+      padding: 10px 8px;
+      text-align: center;
+      background: transparent;
+      border: none;
+      color: var(--text-secondary);
+      font-family: inherit;
+      font-size: 12.5px;
+      font-weight: 700;
+      border-radius: 10px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+    }
+
+    .nav-tab-btn.active {
+      background: rgba(56, 189, 248, 0.18);
+      color: var(--accent);
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      box-shadow: 0 4px 12px rgba(56, 189, 248, 0.15);
+    }
+
+    /* Section Title */
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+      padding: 0 2px;
+    }
+
+    .section-title {
+      font-size: 14px;
+      font-weight: 800;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .badge-count {
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text-secondary);
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 12px;
+    }
+
+    /* Model Cards */
+    .model-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--card-radius);
+      padding: 14px 16px;
+      margin-bottom: 12px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+      transition: all 0.2s ease;
+    }
+
+    .model-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .model-title {
+      font-size: 14px;
+      font-weight: 800;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .model-total-badge {
+      font-size: 14px;
+      font-weight: 800;
+      color: var(--success);
+      background: var(--success-glow);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      padding: 3px 9px;
+      border-radius: 10px;
+    }
+
+    .op-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 0;
+      font-size: 12px;
+      border-bottom: 1px dashed rgba(255, 255, 255, 0.05);
+    }
+
+    .op-row:last-child {
+      border-bottom: none;
+      padding-bottom: 0;
+    }
+
+    .op-info {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .op-name {
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .op-rate-note {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .op-calc {
+      text-align: right;
+    }
+
+    .op-qty-tag {
+      display: inline-block;
+      background: rgba(56, 189, 248, 0.1);
+      color: var(--accent);
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 6px;
+      font-size: 11px;
+      margin-bottom: 2px;
+    }
+
+    .op-sum-val {
+      font-weight: 700;
+      color: var(--success);
+      font-size: 13px;
+    }
+
+    /* Ticket Items */
+    .ticket-item {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 12px 14px;
+      margin-bottom: 10px;
+    }
+
+    .ticket-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 6px;
+    }
+
+    .ticket-badge-id {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--accent);
+    }
+
+    .ticket-time {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .ticket-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+
+    .ticket-tag {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      color: var(--text-secondary);
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 7px;
+      border-radius: 6px;
+    }
+
+    .ticket-my-op {
+      background: rgba(16, 185, 129, 0.08);
+      border: 1px solid rgba(16, 185, 129, 0.2);
+      border-radius: 8px;
+      padding: 6px 10px;
+      font-size: 11.5px;
+      display: flex;
+      justify-content: space-between;
+      color: var(--text-primary);
+    }
+
+    /* Privacy Banner */
+    .privacy-banner {
+      background: rgba(56, 189, 248, 0.06);
+      border: 1px solid rgba(56, 189, 248, 0.2);
+      border-radius: 12px;
+      padding: 10px 12px;
+      margin-top: 20px;
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      font-size: 11.5px;
+      color: var(--text-secondary);
+      line-height: 1.4;
+    }
+
+    .privacy-banner svg {
+      flex-shrink: 0;
+      margin-top: 2px;
+      color: var(--accent);
+    }
+
+    /* State messages */
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--text-secondary);
+      font-size: 13px;
+    }
+
+    .empty-state-icon {
+      font-size: 36px;
+      margin-bottom: 8px;
+      opacity: 0.6;
+    }
+
+    /* Loading overlay */
+    .loading-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 60px 20px;
+      gap: 12px;
+    }
+
+    .spinner {
+      width: 36px;
+      height: 36px;
+      border: 3px solid rgba(56, 189, 248, 0.2);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Glass Bar -->
+  <header class="top-bar">
+    <div class="header-row">
+      <div class="worker-profile-brief">
+        <div class="avatar-badge" id="avatarBadge">👤</div>
+        <div class="worker-meta">
+          <div class="worker-name-title" id="workerNameHeader">Yuklanmoqda...</div>
+          <div class="worker-id-pill" id="workerIdBadge">ID: --</div>
+        </div>
+      </div>
+      <div class="action-group">
+        <button class="icon-btn" id="refreshBtn" title="Yangilash">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="23 4 23 10 17 10"></polyline>
+            <polyline points="1 20 1 14 7 14"></polyline>
+            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    
+    <!-- Period strip -->
+    <div class="period-strip">
+      <span id="periodNameText">Davr: Sentabr 2026</span>
+      <span class="period-badge-status" id="periodStatusBadge">Faol oylik</span>
+    </div>
+
+    <!-- Hero Net Pay Card -->
+    <section class="hero-kpi-card" id="heroCard">
+      <div class="hero-label">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        Qo'lga tegishi (Sof Foyda)
+      </div>
+      <div class="hero-amount" id="netPayAmount">0 so'm</div>
+      <div class="hero-subtitle" id="netPaySubtitle">Barcha avans va jarimalar chegirilganidan keyin</div>
+
+      <div class="hero-grid">
+        <div class="hero-grid-item">
+          <div class="hero-grid-label">Jami hisoblangan</div>
+          <div class="hero-grid-val gross" id="grossPayAmount">0 so'm</div>
+        </div>
+        <div class="hero-grid-item">
+          <div class="hero-grid-label">Olingan Avans</div>
+          <div class="hero-grid-val avans" id="avansAmount">0 so'm</div>
+        </div>
+        <div class="hero-grid-item">
+          <div class="hero-grid-label">Jarima / Shtraf</div>
+          <div class="hero-grid-val jarima" id="jarimaAmount">0 so'm</div>
+        </div>
+        <div class="hero-grid-item">
+          <div class="hero-grid-label">Bajarilgan ish soni</div>
+          <div class="hero-grid-val staj" id="totalPiecesCount">0 dona</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Navigation Tabs -->
+    <nav class="nav-tabs">
+      <button class="nav-tab-btn active" id="tabBtnOps" onclick="switchTab('ops')">
+        📋 Operatsiyalarim
+      </button>
+      <button class="nav-tab-btn" id="tabBtnTickets" onclick="switchTab('tickets')">
+        🎫 Pattalarim
+      </button>
+      <button class="nav-tab-btn" id="tabBtnAbout" onclick="switchTab('about')">
+        ℹ️ Profil & Qoidalar
+      </button>
+    </nav>
+
+    <!-- Tab 1: Operations -->
+    <section id="tabContentOps">
+      <div class="section-header">
+        <div class="section-title">
+          Modellar va tikilgan choklar
+          <span class="badge-count" id="modelsCountBadge">0</span>
+        </div>
+      </div>
+      <div id="modelsBreakdownList">
+        <div class="loading-wrap">
+          <div class="spinner"></div>
+          <div style="font-size: 12px; color: var(--text-secondary);">Hisobotlar yuklanmoqda...</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Tab 2: Tickets -->
+    <section id="tabContentTickets" style="display: none;">
+      <div class="section-header">
+        <div class="section-title">
+          Topshirilgan pattalar tarixi
+          <span class="badge-count" id="ticketsCountBadge">0</span>
+        </div>
+      </div>
+      <div id="ticketsList">
+        <div class="loading-wrap">
+          <div class="spinner"></div>
+          <div style="font-size: 12px; color: var(--text-secondary);">Pattalar yuklanmoqda...</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Tab 3: About & Privacy -->
+    <section id="tabContentAbout" style="display: none;">
+      <div class="model-card">
+        <div class="model-title" style="margin-bottom: 8px;">🔒 Maxfiylik va Xavfsizlik Kafolati</div>
+        <p style="font-size: 12.5px; color: var(--text-secondary); line-height: 1.5; margin-bottom: 12px;">
+          Ushbu bot va portal faqat sizning shaxsiy ishbay hisob-kitoblaringizni ko'rsatish uchun mo'ljallangan. 
+          Boshqa biror xodim sizning oyligingizni, siz esa boshqa ishchilar va korxonaning umumiy ko'rsatkichlarini ko'ra olmaysiz.
+        </p>
+        <div style="border-top: 1px solid var(--border); padding-top: 10px; font-size: 12px;">
+          <div style="display: flex; justify-content: space-between; padding: 4px 0;">
+            <span style="color: var(--text-muted);">Sizning ID:</span>
+            <span style="font-weight: 700;" id="aboutWorkerId">--</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; padding: 4px 0;">
+            <span style="color: var(--text-muted);">F.I.O:</span>
+            <span style="font-weight: 700;" id="aboutWorkerName">--</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; padding: 4px 0;">
+            <span style="color: var(--text-muted);">Korxona:</span>
+            <span style="font-weight: 700;" id="aboutCompanyId">--</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; padding: 4px 0;">
+            <span style="color: var(--text-muted);">Oylik formula:</span>
+            <span style="font-weight: 700; color: var(--accent);">Sof = Jami - Avans - Jarima</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="privacy-banner">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        <div>
+          Agar hisob-kitoblarda noaniqlik sezsangiz yoki patta skaner qilinmagan bo'lsa, korxona ustasi yoki buxgalteriga murojaat qiling.
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <script>
+    // Initialize Telegram WebApp
+    const tg = window.Telegram?.WebApp;
+    if (tg) {
+      tg.ready();
+      tg.expand();
+      try {
+        tg.setHeaderColor('#0b0f19');
+        tg.setBackgroundColor('#0b0f19');
+      } catch (e) {}
+    }
+
+    function triggerHaptic(type = 'light') {
+      try {
+        if (tg?.HapticFeedback) {
+          if (type === 'light') tg.HapticFeedback.impactOccurred('light');
+          else if (type === 'medium') tg.HapticFeedback.impactOccurred('medium');
+          else if (type === 'success') tg.HapticFeedback.notificationOccurred('success');
+        }
+      } catch (e) {}
+    }
+
+    // Config & Parameters
+    const FIREBASE_BASE_URL = "https://hisobchi-c930c-default-rtdb.asia-southeast1.firebasedatabase.app";
+    const urlParams = new URLSearchParams(window.location.search);
+    
+    // Worker ID from query parameter or Telegram user fallback
+    let targetWorkerId = urlParams.get('worker_id') || urlParams.get('id');
+    const companyId = urlParams.get('comp') || 'comp_novda';
+
+    const state = {
+      workerId: targetWorkerId ? Number(targetWorkerId) : null,
+      companyId: companyId,
+      worker: null,
+      models: [],
+      currentPeriod: null,
+      submittedTickets: [],
+      calculations: {
+        gross: 0,
+        avans: 0,
+        jarima: 0,
+        staj: 0,
+        net: 0,
+        pieces: 0,
+        modelsBreakdown: {}
+      },
+      isLoading: false
+    };
+
+    function formatMoney(num) {
+      return (Number(num) || 0).toLocaleString('uz-UZ') + " so'm";
+    }
+
+    function formatNumber(num) {
+      return (Number(num) || 0).toLocaleString('uz-UZ');
+    }
+
+    // Switch Tabs
+    window.switchTab = function(tabName) {
+      triggerHaptic('light');
+      document.querySelectorAll('.nav-tab-btn').forEach(b => b.classList.remove('active'));
+      document.getElementById('tabContentOps').style.display = 'none';
+      document.getElementById('tabContentTickets').style.display = 'none';
+      document.getElementById('tabContentAbout').style.display = 'none';
+
+      if (tabName === 'ops') {
+        document.getElementById('tabBtnOps').classList.add('active');
+        document.getElementById('tabContentOps').style.display = 'block';
+      } else if (tabName === 'tickets') {
+        document.getElementById('tabBtnTickets').classList.add('active');
+        document.getElementById('tabContentTickets').style.display = 'block';
+      } else if (tabName === 'about') {
+        document.getElementById('tabBtnAbout').classList.add('active');
+        document.getElementById('tabContentAbout').style.display = 'block';
+      }
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    // Load data from Firebase
+    async function loadWorkerData() {
+      if (state.isLoading) return;
+      state.isLoading = true;
+      const refreshBtn = document.getElementById('refreshBtn');
+      refreshBtn.classList.add('spinning');
+
+      try {
+        // If worker ID is missing from URL, try fetching telegram binding
+        if (!state.workerId && tg?.initDataUnsafe?.user?.id) {
+          try {
+            const tgId = tg.initDataUnsafe.user.id;
+            const bRes = await fetch(`${FIREBASE_BASE_URL}/worker_telegram_bindings/${tgId}.json`);
+            if (bRes.ok) {
+              const bData = await bRes.json();
+              if (bData && bData.worker_id) {
+                state.workerId = Number(bData.worker_id);
+                if (bData.company_id) state.companyId = bData.company_id;
+              }
+            }
+          } catch (e) {
+            console.warn('Binding lookup error:', e);
+          }
+        }
+
+        if (!state.workerId) {
+          renderError("Xodim ID raqami topilmadi. Iltimos botdan qaytadan /start bosib kiring.");
+          return;
+        }
+
+        // Fetch workers, models, and currentPeriod in parallel (Lightweight, fast endpoints!)
+        const [wRes, mRes, pRes] = await Promise.all([
+          fetch(`${FIREBASE_BASE_URL}/companies/${state.companyId}/syncData/workers.json`),
+          fetch(`${FIREBASE_BASE_URL}/companies/${state.companyId}/syncData/models.json`),
+          fetch(`${FIREBASE_BASE_URL}/companies/${state.companyId}/syncData/currentPeriod.json`)
+        ]);
+
+        const workers = wRes.ok ? await wRes.json() : [];
+        const models = mRes.ok ? await mRes.json() : [];
+        const currentPeriod = pRes.ok ? await pRes.json() : null;
+
+        // Find this specific worker
+        const worker = (Array.isArray(workers) ? workers : []).find(x => Number(x.id) === state.workerId);
+        if (!worker) {
+          renderError(`Bazada ID #${state.workerId} ga ega xodim topilmadi.`);
+          return;
+        }
+
+        state.worker = worker;
+        state.models = Array.isArray(models) ? models : [];
+        state.currentPeriod = currentPeriod;
+
+        // Compute personal payroll calculations
+        computePersonalPayroll();
+
+        // Render UI
+        renderHeader();
+        renderHero();
+        renderOperations();
+
+        // Fetch tickets in background
+        fetchWorkerTickets();
+
+      } catch (err) {
+        console.error('Data loading error:', err);
+        renderError("Ma'lumotlarni yuklashda xatolik yuz berdi. Internet aloqasini tekshiring.");
+      } finally {
+        state.isLoading = false;
+        refreshBtn.classList.remove('spinning');
+      }
+    }
+
+    // Compute Personal Payroll for ONLY this worker
+    function computePersonalPayroll() {
+      const w = state.worker;
+      const wid = w.id;
+      let totalGross = 0;
+      let totalPieces = 0;
+      const modelsBreakdown = {};
+
+      for (const model of state.models) {
+        if (!model || !model.id) continue;
+        const operations = Array.isArray(model.operations) ? model.operations : [];
+        const hisobQuantities = model.hisobQuantities || {};
+        const wQtyMap = hisobQuantities[wid] || {};
+
+        const opRateMap = {};
+        for (const op of operations) {
+          opRateMap[op.name] = op.rate || 0;
+        }
+
+        let mGross = 0;
+        let mPieces = 0;
+        const opsDone = [];
+
+        for (const [opName, qty] of Object.entries(wQtyMap)) {
+          const numQty = Number(qty) || 0;
+          if (numQty > 0) {
+            const rate = opRateMap[opName] || 0;
+            const lineAmt = numQty * rate;
+            mGross += lineAmt;
+            mPieces += numQty;
+            opsDone.push({
+              name: opName,
+              rate: rate,
+              qty: numQty,
+              amount: lineAmt
+            });
+          }
+        }
+
+        if (mGross > 0 || mPieces > 0) {
+          modelsBreakdown[model.id] = {
+            id: model.id,
+            name: model.name || `Model #${model.id}`,
+            earnings: mGross,
+            pieces: mPieces,
+            operations: opsDone
+          };
+          totalGross += mGross;
+          totalPieces += mPieces;
+        }
+      }
+
+      const avans = Math.max(0, Number(w.avans) || 0);
+      const jarima = Math.max(0, Number(w.jarima) || 0);
+      const staj = Math.max(0, Number(w.staj) || 0);
+      const net = totalGross - avans - jarima - staj;
+
+      state.calculations = {
+        gross: totalGross,
+        avans: avans,
+        jarima: jarima,
+        staj: staj,
+        net: net,
+        pieces: totalPieces,
+        modelsBreakdown: modelsBreakdown
+      };
+    }
+
+    function renderHeader() {
+      const w = state.worker;
+      const initial = (w.name || 'X').charAt(0).toUpperCase();
+      document.getElementById('avatarBadge').textContent = initial;
+      document.getElementById('workerNameHeader').textContent = w.name || `Ishchi #${w.id}`;
+      document.getElementById('workerIdBadge').textContent = `ID: #${w.id}`;
+
+      const p = state.currentPeriod;
+      if (p && p.name) {
+        document.getElementById('periodNameText').textContent = `Davr: ${p.name}`;
+      }
+      if (p?.isClosed) {
+        const badge = document.getElementById('periodStatusBadge');
+        badge.textContent = "Yopilgan";
+        badge.style.color = "var(--danger)";
+        badge.style.borderColor = "var(--danger)";
+        badge.style.background = "var(--danger-glow)";
+      }
+
+      document.getElementById('aboutWorkerId').textContent = `#${w.id}`;
+      document.getElementById('aboutWorkerName').textContent = w.name;
+      document.getElementById('aboutCompanyId').textContent = state.companyId;
+    }
+
+    function renderHero() {
+      const c = state.calculations;
+      const netEl = document.getElementById('netPayAmount');
+      netEl.textContent = formatMoney(c.net);
+      if (c.net < 0) {
+        netEl.classList.add('negative');
+      } else {
+        netEl.classList.remove('negative');
+      }
+
+      document.getElementById('grossPayAmount').textContent = formatMoney(c.gross);
+      document.getElementById('avansAmount').textContent = formatMoney(c.avans);
+      document.getElementById('jarimaAmount').textContent = formatMoney(c.jarima);
+      document.getElementById('totalPiecesCount').textContent = `${formatNumber(c.pieces)} dona`;
+    }
+
+    function renderOperations() {
+      const listEl = document.getElementById('modelsBreakdownList');
+      const mb = state.calculations.modelsBreakdown;
+      const keys = Object.keys(mb);
+      document.getElementById('modelsCountBadge').textContent = keys.length;
+
+      if (!keys.length) {
+        listEl.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-state-icon">🧵</div>
+            <div style="font-weight: 700; color: var(--text-primary); margin-bottom: 4px;">Hali ishlar kiritilmagan</div>
+            <div>Joriy oylikda sizga biriktirilgan operatsiyalar topilmadi.</div>
+          </div>
+        `;
+        return;
+      }
+
+      let html = '';
+      for (const mId of keys) {
+        const m = mb[mId];
+        let opsHtml = '';
+        for (const op of m.operations) {
+          opsHtml += `
+            <div class="op-row">
+              <div class="op-info">
+                <span class="op-name">${op.name}</span>
+                <span class="op-rate-note">${formatNumber(op.rate)} so'm / dona</span>
+              </div>
+              <div class="op-calc">
+                <div><span class="op-qty-tag">${formatNumber(op.qty)} dona</span></div>
+                <div class="op-sum-val">${formatMoney(op.amount)}</div>
+              </div>
+            </div>
+          `;
+        }
+
+        html += `
+          <div class="model-card">
+            <div class="model-header">
+              <div class="model-title">
+                <span>👗</span>
+                <span>${m.name}</span>
+              </div>
+              <div class="model-total-badge">${formatMoney(m.earnings)}</div>
+            </div>
+            <div>${opsHtml}</div>
+          </div>
+        `;
+      }
+      listEl.innerHTML = html;
+    }
+
+    // Fetch and render tickets that belong to this worker
+    async function fetchWorkerTickets() {
+      const ticketsListEl = document.getElementById('ticketsList');
+      try {
+        const res = await fetch(`${FIREBASE_BASE_URL}/companies/${state.companyId}/syncData/submittedTickets.json`);
+        if (!res.ok) throw new Error('Tickets fetch failed');
+        const tickets = await res.json();
+        
+        const allTickets = Array.isArray(tickets) ? tickets : Object.values(tickets || {});
+        
+        // Filter ONLY tickets where this worker participated
+        const myTickets = allTickets.filter(t => 
+          Array.isArray(t.entries) && t.entries.some(e => Number(e.workerId) === state.workerId)
+        ).reverse();
+
+        state.submittedTickets = myTickets;
+        document.getElementById('ticketsCountBadge').textContent = myTickets.length;
+
+        if (!myTickets.length) {
+          ticketsListEl.innerHTML = `
+            <div class="empty-state">
+              <div class="empty-state-icon">🎫</div>
+              <div style="font-weight: 700; color: var(--text-primary); margin-bottom: 4px;">Topshirilgan pattalar yo'q</div>
+              <div>Hozircha sizning ID raqamingiz bilan skanerlangan chiptalar mavjud emas.</div>
+            </div>
+          `;
+          return;
+        }
+
+        let html = '';
+        for (const t of myTickets.slice(0, 50)) { // show latest 50
+          const myOps = t.entries
+            .filter(e => Number(e.workerId) === state.workerId)
+            .map(e => e.opName)
+            .join(', ');
+
+          html += `
+            <div class="ticket-item">
+              <div class="ticket-top">
+                <span class="ticket-badge-id">${t.modelId || 'Model'} &bull; Patta #${t.pattaNumber || 1}</span>
+                <span class="ticket-time">⏱️ ${t.submittedAt || ''}</span>
+              </div>
+              <div class="ticket-tags">
+                <span class="ticket-tag">Partiya: ${t.partyNumber || '-'}</span>
+                <span class="ticket-tag">Razmer: ${t.size || '-'}</span>
+                <span class="ticket-tag">Rang: ${t.color || '-'}</span>
+                <span class="ticket-tag" style="color: var(--success); font-weight: 700;">Soni: ${t.qty || 0} dona</span>
+              </div>
+              <div class="ticket-my-op">
+                <span>Bajarilgan chok:</span>
+                <span style="font-weight: 700; color: var(--accent);">${myOps || 'Tikuv'}</span>
+              </div>
+            </div>
+          `;
+        }
+        ticketsListEl.innerHTML = html;
+
+      } catch (e) {
+        console.warn('Tickets error:', e);
+        ticketsListEl.innerHTML = '<div class="empty-state">Pattalarni yuklashda xatolik yuz berdi.</div>';
+      }
+    }
+
+    function renderError(msg) {
+      document.getElementById('modelsBreakdownList').innerHTML = `
+        <div class="empty-state">
+          <div class="empty-state-icon">⚠️</div>
+          <div style="font-weight: 700; color: var(--danger); margin-bottom: 6px;">Xatolik</div>
+          <div>${msg}</div>
+        </div>
+      `;
+    }
+
+    // Event Listeners
+    document.getElementById('refreshBtn').addEventListener('click', () => {
+      triggerHaptic('medium');
+      loadWorkerData();
+    });
+
+    // Auto-boot
+    loadWorkerData();
+  </script>
+</body>
+</html>
