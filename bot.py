@@ -33,6 +33,26 @@ if sys.platform == 'win32':
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 CONFIG_FILE = os.path.join(CURRENT_DIR, 'config.json')
 BINDINGS_FILE = os.path.join(CURRENT_DIR, 'bindings.json')
+ENV_FILE = os.path.join(CURRENT_DIR, '.env')
+
+def load_env_file():
+    """Load key-value pairs from .env if present without external dependencies."""
+    if os.path.exists(ENV_FILE):
+        try:
+            with open(ENV_FILE, 'r', encoding='utf-8') as f:
+                for line in f:
+                    line = line.strip()
+                    if not line or line.startswith('#') or '=' not in line:
+                        continue
+                    k, v = line.split('=', 1)
+                    k = k.strip()
+                    v = v.strip().strip('"').strip("'")
+                    if k and k not in os.environ:
+                        os.environ[k] = v
+        except Exception as e:
+            print(f"[Env Loader Note]: {e}")
+
+load_env_file()
 
 def load_config():
     cfg = {
