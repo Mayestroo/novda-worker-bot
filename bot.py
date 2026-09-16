@@ -354,29 +354,6 @@ def send_api(method, payload):
         print(f"[Telegram API Error] {method}: {e}")
         return None
 
-def build_main_reply_keyboard(company_id, worker_id):
-    app_url = get_webapp_full_url(company_id, worker_id)
-    return {
-        "keyboard": [
-            [
-                {"text": "📱 Mening Hisobim (Web App)", "web_app": {"url": app_url}}
-            ],
-            [
-                {"text": "💰 Sof Foyda va Oylik"},
-                {"text": "📋 Bajargan Ishlarim"}
-            ],
-            [
-                {"text": "🎫 Oxirgi Pattalarim"},
-                {"text": "🔄 Yangilash"}
-            ],
-            [
-                {"text": "ℹ️ Yordam & Qoidalar"},
-                {"text": "🚪 Chiqish (Hisobdan uzish)"}
-            ]
-        ],
-        "resize_keyboard": True,
-        "is_persistent": True
-    }
 
 def build_main_reply_keyboard(company_id, worker_id):
     app_url = get_webapp_full_url(company_id, worker_id)
@@ -630,18 +607,12 @@ def handle_finances(chat_id, tg_id):
         f"🏷 <b>Bajarilgan ish soni:</b> {format_number(stats['pieces'])} dona\n\n"
         f"🔒 <i>Faqat sizning shaxsiy statistikangiz.</i>"
     )
-    inline_kb = {
-        "inline_keyboard": [
-            [
-                {"text": "📱 Web App orqali ko'rish", "web_app": {"url": app_url}}
-            ]
-        ]
-    }
+    # Sending main reply keyboard forces phone to clear old Chiqish button
     send_api("sendMessage", {
         "chat_id": chat_id,
         "text": msg,
         "parse_mode": "HTML",
-        "reply_markup": inline_kb
+        "reply_markup": build_main_reply_keyboard(comp, wid)
     })
 
 def handle_operations(chat_id, tg_id):
@@ -661,7 +632,8 @@ def handle_operations(chat_id, tg_id):
     if not mb:
         send_api("sendMessage", {
             "chat_id": chat_id,
-            "text": "🧵 Sizga joriy davrda hali operatsiyalar yoki tikilgan choklar kiritilmagan."
+            "text": "🧵 Sizga joriy davrda hali operatsiyalar yoki tikilgan choklar kiritilmagan.",
+            "reply_markup": build_main_reply_keyboard(comp, wid)
         })
         return
 
@@ -681,19 +653,11 @@ def handle_operations(chat_id, tg_id):
     text_parts.append("\n━━━━━━━━━━━━━━━━━━")
     text_parts.append(f"💵 <b>Jami hisoblangan:</b> <code>{format_money(stats['gross'])}</code>")
 
-    app_url = get_webapp_full_url(comp, wid)
-    inline_kb = {
-        "inline_keyboard": [
-            [
-                {"text": "📱 To'liq ko'rinish (Web App)", "web_app": {"url": app_url}}
-            ]
-        ]
-    }
     send_api("sendMessage", {
         "chat_id": chat_id,
         "text": "\n".join(text_parts),
         "parse_mode": "HTML",
-        "reply_markup": inline_kb
+        "reply_markup": build_main_reply_keyboard(comp, wid)
     })
 
 def handle_tickets(chat_id, tg_id):
@@ -710,7 +674,8 @@ def handle_tickets(chat_id, tg_id):
     if not tickets:
         send_api("sendMessage", {
             "chat_id": chat_id,
-            "text": "🎫 Hozircha sizning ID raqamingiz bilan skanerlangan chiptalar (pattalar) topilmadi."
+            "text": "🎫 Hozircha sizning ID raqamingiz bilan skanerlangan chiptalar (pattalar) topilmadi.",
+            "reply_markup": build_main_reply_keyboard(comp, wid)
         })
         return
 
@@ -726,33 +691,32 @@ def handle_tickets(chat_id, tg_id):
             f"📦 Soni: <b>{t['qty']} dona</b> | ⏱️ {t['submitted_at']}\n"
         )
 
-    app_url = get_webapp_full_url(comp, wid)
-    inline_kb = {
-        "inline_keyboard": [
-            [
-                {"text": "📱 Barcha pattalarni ko'rish", "web_app": {"url": app_url}}
-            ]
-        ]
-    }
     send_api("sendMessage", {
         "chat_id": chat_id,
         "text": "\n".join(lines),
         "parse_mode": "HTML",
-        "reply_markup": inline_kb
+        "reply_markup": build_main_reply_keyboard(comp, wid)
     })
 
 def handle_help(chat_id, tg_id):
     binding = get_worker_binding(tg_id)
     wid_text = f"#{binding['worker_id']}" if binding else "Bog'lanmagan"
+    comp = binding.get("company_id", DEFAULT_COMPANY_ID) if binding else DEFAULT_COMPANY_ID
+    wid = binding["worker_id"] if binding else 0
     msg = (
         f"ℹ️ <b>YORDAM VA FOYDALANISH QOIDALARI</b>\n\n"
         f"• <b>Shaxsiy ID:</b> {wid_text}\n"
         f"• <b>Sof Foyda formulasi:</b>\n"
         f"  <code>Sof Foyda = Jami tikilgan summa - Avans - Jarima</code>\n\n"
-        f"🔒 <b>Xavfsizlik:</b> Siz faqat o'zingizga tegishli raqamlar va pattalarni ko'rasiz.\n\n"
+        f"🔒 <b>Xavfsizlik:</b> Siz faqat o'zingizga tegishli raqamlar va pattalarni ko'rasiz. Hisobdan chiqish yoki boshqa xodim hisobiga kirish taqiqlangan.\n\n"
         f"❓ Agar biror patta chiqmay qolgan bo'lsa yoki avans miqdorida savol bo'lsa, korxona ustasiga murojaat qiling."
     )
-    send_api("sendMessage", {"chat_id": chat_id, "text": msg, "parse_mode": "HTML"})
+    send_api("sendMessage", {
+        "chat_id": chat_id,
+        "text": msg,
+        "parse_mode": "HTML",
+        "reply_markup": build_main_reply_keyboard(comp, wid) if wid else {"remove_keyboard": True}
+    })
 
 def handle_callback_query(callback):
     cb_id = callback.get("id")
