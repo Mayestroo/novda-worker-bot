@@ -142,6 +142,19 @@ def get_worker_binding(tg_id):
     local = get_local_bindings()
     return local.get(str(tg_id))
 
+def get_worker_id_binding(company_id, worker_id):
+    """Checks if a worker ID is already claimed by any Telegram user."""
+    try:
+        url = f"{FIREBASE_RTDB_URL}/companies/{company_id}/worker_bindings/{worker_id}.json"
+        req = urllib.request.Request(url, headers={'User-Agent': 'NovdaWorkerBot/1.0'})
+        with urllib.request.urlopen(req, timeout=6) as resp:
+            data = json.loads(resp.read().decode('utf-8'))
+            if isinstance(data, dict) and data.get("tg_id"):
+                return data
+    except Exception:
+        pass
+    return None
+
 def save_worker_binding(tg_id, worker_id, worker_name, company_id=DEFAULT_COMPANY_ID, username=""):
     payload = {
         "tg_id": tg_id,
@@ -162,21 +175,30 @@ def save_worker_binding(tg_id, worker_id, worker_name, company_id=DEFAULT_COMPAN
         )
         with urllib.request.urlopen(req, timeout=8):
             pass
-        print(f"[{datetime.now().strftime('%H:%M:%S')}] Bog'landi: tg={tg_id} -> worker #{worker_id} ({worker_name})")
     except Exception as e:
         print(f"[Firebase Binding Save Error]: {e}")
-    return payload
 
-def remove_worker_binding(tg_id):
-    save_local_binding(tg_id, None)
+    # Reverse binding: prevents anyone else from claiming this worker ID
     try:
-        url = f"{FIREBASE_RTDB_URL}/worker_telegram_bindings/{tg_id}.json"
-        req = urllib.request.Request(url, headers={'Content-Type': 'application/json'}, method='DELETE')
-        with urllib.request.urlopen(req, timeout=8):
+        rev_url = f"{FIREBASE_RTDB_URL}/companies/{company_id}/worker_bindings/{worker_id}.json"
+        rev_payload = {
+            "tg_id": tg_id,
+            "worker_name": worker_name,
+            "linked_at": datetime.now().isoformat()
+        }
+        req_rev = urllib.request.Request(
+            rev_url,
+            data=json.dumps(rev_payload).encode('utf-8'),
+            headers={'Content-Type': 'application/json'},
+            method='PUT'
+        )
+        with urllib.request.urlopen(req_rev, timeout=8):
             pass
-        print(f"[{datetime.now().strftime('%H:%M:%S')}] Uzildi: tg={tg_id}")
+        print(f"[{datetime.now().strftime('%H:%M:%S')}] Doimiy bog'landi: tg={tg_id} <-> worker #{worker_id} ({worker_name})")
     except Exception as e:
-        print(f"[Firebase Binding Delete Error]: {e}")
+        print(f"[Firebase Reverse Binding Error]: {e}")
+
+    return payload
 
 # ─────────────────────────────────────────────────────────────────────────────
 # FIREBASE WORKER CALCULATIONS
@@ -356,6 +378,29 @@ def build_main_reply_keyboard(company_id, worker_id):
         "is_persistent": True
     }
 
+def build_main_reply_keyboard(company_id, worker_id):
+    app_url = get_webapp_full_url(company_id, worker_id)
+    return {
+        "keyboard": [
+            [
+                {"text": "📱 Mening Hisobim (Web App)", "web_app": {"url": app_url}}
+            ],
+            [
+                {"text": "💰 Sof Foyda va Oylik"},
+                {"text": "📋 Bajargan Ishlarim"}
+            ],
+            [
+                {"text": "🎫 Oxirgi Pattalarim"},
+                {"text": "🔄 Yangilash"}
+            ],
+            [
+                {"text": "ℹ️ Yordam & Qoidalar"}
+            ]
+        ],
+        "resize_keyboard": True,
+        "is_persistent": True
+    }
+
 def format_money(amt):
     return f"{int(round(amt)):,}".replace(",", " ") + " so'm"
 
@@ -383,9 +428,9 @@ def handle_start(chat_id, user):
             f"👋 <b>Assalomu alaykum, {name}!</b>\n\n"
             f"🆔 <b>Sizning ID:</b> #{wid}\n"
             f"💵 <b>Qo'lga tegadigan Sof Foyda:</b> <code>{net_text}</code>\n\n"
-            f"🔒 <i>Ushbu botda faqat sizning shaxsiy hisob-kitobingiz ko'rinadi. "
+            f"🔒 <i>Ushbu bot sizning ID #{wid} hisobingizga doimiy biriktirilgan. "
             f"Boshqalar siznikini, siz esa birovnikini ko'ra olmaysiz.</i>\n\n"
-            f"👇 Quyidagi tugmalar orqali batafsil tanishing:"
+            f"👇 Quyidagi tugmalar orqali hisobotlaringiz bilan tanishing:"
         )
 
         reply_markup = build_main_reply_keyboard(comp, wid)
@@ -413,7 +458,8 @@ def handle_start(chat_id, user):
             f"👋 <b>Assalomu alaykum!</b>\n\n"
             f"Novda xodimlarining shaxsiy hisob-kitob botiga xush kelibsiz.\n\n"
             f"Tizimdan foydalanish uchun korxonadagi <b>Ishchi ID</b> raqamingizni kiriting:\n"
-            f"<i>(Masalan: <code>27</code>)</i>"
+            f"<i>(Masalan: <code>27</code>)</i>\n\n"
+            f"⚠️ <b>Eslatma:</b> Kiritilgan ID raqam profilingizga doimiy biriktiriladi va keyinchalik o'zboshimchalik bilan o'zgartirib bo'lmaydi."
         )
         send_api("sendMessage", {
             "chat_id": chat_id,
@@ -424,44 +470,78 @@ def handle_start(chat_id, user):
 
 def handle_text_input(chat_id, user, text):
     tg_id = user.get("id")
+    binding = get_worker_binding(tg_id)
+
+    # If worker is ALREADY BOUND -> strictly locked to their own ID
+    if binding and binding.get("worker_id"):
+        wid = binding["worker_id"]
+        wname = binding.get("worker_name", f"Ishchi #{wid}")
+
+        if text in ("💰 Sof Foyda va Oylik", "/hisob"):
+            handle_finances(chat_id, tg_id)
+            return
+
+        if text in ("📋 Bajargan Ishlarim", "/operatsiyalar"):
+            handle_operations(chat_id, tg_id)
+            return
+
+        if text in ("🎫 Oxirgi Pattalarim", "/pattalar"):
+            handle_tickets(chat_id, tg_id)
+            return
+
+        if text in ("🔄 Yangilash", "/refresh"):
+            handle_start(chat_id, user)
+            return
+
+        if text in ("ℹ️ Yordam & Qoidalar", "/help"):
+            handle_help(chat_id, tg_id)
+            return
+
+        # Attempt to exit, unbind, or enter another worker's number is BLOCKED
+        send_api("sendMessage", {
+            "chat_id": chat_id,
+            "text": (
+                f"🔒 <b>Xavfsizlik qoidasi:</b>\n\n"
+                f"Siz allaqachon <b>#{wid} ({wname})</b> hisobiga doimiy biriktirilgansiz.\n"
+                f"Boshqa xodimlar hisob-kitobini ko'rish yoki hisobdan chiqish taqiqlangan.\n\n"
+                f"<i>Agar hisobni o'zgartirish zarur bo'lsa, korxona ustasi yoki ma'muriyatiga murojaat qiling.</i>"
+            ),
+            "parse_mode": "HTML",
+            "reply_markup": build_main_reply_keyboard(binding.get("company_id", DEFAULT_COMPANY_ID), wid)
+        })
+        return
+
+    # If NOT bound yet:
     state = user_states.get(tg_id, {})
     step = state.get("step")
 
-    if text in ("💰 Sof Foyda va Oylik", "/hisob"):
-        handle_finances(chat_id, tg_id)
-        return
-
-    if text in ("📋 Bajargan Ishlarim", "/operatsiyalar"):
-        handle_operations(chat_id, tg_id)
-        return
-
-    if text in ("🎫 Oxirgi Pattalarim", "/pattalar"):
-        handle_tickets(chat_id, tg_id)
-        return
-
-    if text in ("🔄 Yangilash", "/refresh"):
-        handle_start(chat_id, user)
-        return
-
-    if text in ("ℹ️ Yordam & Qoidalar", "/help"):
-        handle_help(chat_id, tg_id)
-        return
-
-    if text in ("🚪 Chiqish (Hisobdan uzish)", "/unbind"):
-        handle_unbind_request(chat_id, tg_id)
-        return
-
-    if step == "WAITING_WORKER_ID" or not get_worker_binding(tg_id):
+    if step == "WAITING_WORKER_ID" or not binding:
         digits = re.findall(r'\d+', text)
         if not digits:
             send_api("sendMessage", {
                 "chat_id": chat_id,
-                "text": "⚠️ Iltimos, faqat ID raqamingizni kiriting (Masalan: <code>27</code>):",
+                "text": "⚠️ Iltimos, faqat o'zingizning ID raqamingizni kiriting (Masalan: <code>27</code>):",
                 "parse_mode": "HTML"
             })
             return
 
         candidate_id = int(digits[0])
+
+        # Security check: verify if this worker ID is already claimed by another Telegram user
+        claimed = get_worker_id_binding(DEFAULT_COMPANY_ID, candidate_id)
+        if claimed and claimed.get("tg_id") and str(claimed["tg_id"]) != str(tg_id):
+            send_api("sendMessage", {
+                "chat_id": chat_id,
+                "text": (
+                    f"⛔ <b>Xavfsizlik cheklovi:</b>\n\n"
+                    f"<b>ID #{candidate_id}</b> allaqachon boshqa Telegram akkauntiga biriktirilgan!\n"
+                    f"Birovning shaxsiy hisobiga kirish qat'iyan taqiqlangan.\n\n"
+                    f"<i>Agar bu sizning raqamingiz bo'lsa, korxona ustasi yoki ma'muriyatiga murojaat qiling.</i>"
+                ),
+                "parse_mode": "HTML"
+            })
+            return
+
         send_api("sendMessage", {
             "chat_id": chat_id,
             "text": f"🔍 ID #{candidate_id} tekshirilmoqda, iltimos kuting..."
@@ -498,12 +578,13 @@ def handle_text_input(chat_id, user, text):
             f"👤 <b>Xodim topildi:</b>\n\n"
             f"🆔 <b>Ishchi ID:</b> #{candidate_id}\n"
             f"📝 <b>F.I.O:</b> {w_name}\n\n"
-            f"Ushbu hisob-kitob <b>sizga tegishlimi?</b>"
+            f"Ushbu hisob-kitob <b>rostdan ham sizga tegishlimi?</b>\n"
+            f"<i>Tasdiqlaganingizdan so'ng hisob profilingizga doimiy bog'lanadi.</i>"
         )
         inline_kb = {
             "inline_keyboard": [
                 [
-                    {"text": "✅ Ha, bu men", "callback_data": f"confirm_worker:{candidate_id}"},
+                    {"text": "✅ Ha, bu men (Doimiy bog'lash)", "callback_data": f"confirm_worker:{candidate_id}"},
                     {"text": "❌ Boshqa raqam", "callback_data": "cancel_worker"}
                 ]
             ]
@@ -673,32 +754,6 @@ def handle_help(chat_id, tg_id):
     )
     send_api("sendMessage", {"chat_id": chat_id, "text": msg, "parse_mode": "HTML"})
 
-def handle_unbind_request(chat_id, tg_id):
-    binding = get_worker_binding(tg_id)
-    if not binding:
-        send_api("sendMessage", {"chat_id": chat_id, "text": "Siz hali biror hisobga bog'lanmagansiz."})
-        return
-
-    msg = (
-        f"⚠️ <b>Hisobdan chiqishni tasdiqlaysizmi?</b>\n\n"
-        f"Hozir siz ID #{binding['worker_id']} ({binding.get('worker_name', '')}) hisobiga ulangansiz.\n"
-        f"Chiqsangiz, qayta kirish uchun ID raqamni qayta kiritishingiz kerak bo'ladi."
-    )
-    inline_kb = {
-        "inline_keyboard": [
-            [
-                {"text": "🚪 Ha, hisobdan uzish", "callback_data": "confirm_unbind"},
-                {"text": "❌ Bekor qilish", "callback_data": "cancel_unbind"}
-            ]
-        ]
-    }
-    send_api("sendMessage", {
-        "chat_id": chat_id,
-        "text": msg,
-        "parse_mode": "HTML",
-        "reply_markup": inline_kb
-    })
-
 def handle_callback_query(callback):
     cb_id = callback.get("id")
     data = callback.get("data", "")
@@ -710,6 +765,22 @@ def handle_callback_query(callback):
 
     if data.startswith("confirm_worker:"):
         wid = int(data.split(":")[1])
+
+        # Double check if worker ID is already claimed by someone else
+        claimed = get_worker_id_binding(DEFAULT_COMPANY_ID, wid)
+        if claimed and claimed.get("tg_id") and str(claimed["tg_id"]) != str(tg_id):
+            send_api("sendMessage", {
+                "chat_id": chat_id,
+                "text": (
+                    f"⛔ <b>Xavfsizlik cheklovi:</b>\n\n"
+                    f"<b>ID #{wid}</b> allaqachon boshqa Telegram akkauntiga biriktirilgan!\n"
+                    f"Birovning hisobiga kirish taqiqlangan."
+                ),
+                "parse_mode": "HTML"
+            })
+            user_states.pop(tg_id, None)
+            return
+
         st = user_states.get(tg_id, {})
         w_name = st.get("candidate_name")
 
@@ -724,10 +795,11 @@ def handle_callback_query(callback):
         send_api("sendMessage", {
             "chat_id": chat_id,
             "text": (
-                f"🎉 <b>Tabriklaymiz!</b> Siz muvaffaqiyatli bog'landingiz.\n\n"
+                f"🎉 <b>Tabriklaymiz!</b> Siz muvaffaqiyatli biriktirildingiz.\n\n"
                 f"👤 <b>Xodim:</b> {w_name}\n"
                 f"🆔 <b>ID:</b> #{wid}\n\n"
-                f"Endi pastdagi menyu orqali oyligingiz va ishlaringizni ko'rishingiz mumkin 👇"
+                f"🔒 <i>Ushbu hisob Telegram profilingizga biriktirildi. Boshqa ishchilar raqamini kiritib ko'rish imkoni yo'q.</i>\n\n"
+                f"Endi pastdagi menyu orqali faqat o'zingizning oyligingiz va ishlaringizni ko'rishingiz mumkin 👇"
             ),
             "parse_mode": "HTML",
             "reply_markup": build_main_reply_keyboard(DEFAULT_COMPANY_ID, wid)
@@ -738,21 +810,6 @@ def handle_callback_query(callback):
         send_api("sendMessage", {
             "chat_id": chat_id,
             "text": "Iltimos, o'zingizning to'g'ri Ishchi ID raqamingizni kiriting:"
-        })
-
-    elif data == "confirm_unbind":
-        remove_worker_binding(tg_id)
-        user_states.pop(tg_id, None)
-        send_api("sendMessage", {
-            "chat_id": chat_id,
-            "text": "✅ Hisob muvaffaqiyatli uzildi. Qayta kirish uchun /start buyrug'ini bosing.",
-            "reply_markup": {"remove_keyboard": True}
-        })
-
-    elif data == "cancel_unbind":
-        send_api("sendMessage", {
-            "chat_id": chat_id,
-            "text": "Amal bekor qilindi. O'z hisobingizdasiz."
         })
 
 # ─────────────────────────────────────────────────────────────────────────────

@@ -785,14 +785,15 @@
       refreshBtn.classList.add('spinning');
 
       try {
-        // If worker ID is missing from URL, try fetching telegram binding
-        if (!state.workerId && tg?.initDataUnsafe?.user?.id) {
+        // Security Enforcement: If inside Telegram, always enforce the verified Telegram user binding!
+        if (tg?.initDataUnsafe?.user?.id) {
           try {
             const tgId = tg.initDataUnsafe.user.id;
             const bRes = await fetch(`${FIREBASE_BASE_URL}/worker_telegram_bindings/${tgId}.json`);
             if (bRes.ok) {
               const bData = await bRes.json();
               if (bData && bData.worker_id) {
+                // Strictly lock to bound worker ID — prevents URL parameter tampering
                 state.workerId = Number(bData.worker_id);
                 if (bData.company_id) state.companyId = bData.company_id;
               }
