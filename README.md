@@ -43,16 +43,15 @@ worker-bot/
 4. Botga username bering (masalan: `novda_ishchilar_bot`).
 5. `@BotFather` bergan **HTTP API Token** ni nusxalab oling.
 
-### 2-qadam: Tokenni kiritish
-`worker-bot/config.json` faylini oching va tokenni yozing:
-```json
-{
-  "bot_token": "SIZNING_BOT_TOKENINGIZ",
-  "company_id": "comp_novda",
-  "webapp_url": ""
-}
+### 2-qadam: Tokenni kiritish (.env orqali)
+`worker-bot/.env` faylini oching va tokenni yozing:
+```env
+WORKER_BOT_TOKEN=SIZNING_BOT_TOKENINGIZ
+DEFAULT_COMPANY_ID=comp_novda
+PORT=8081
+FIREBASE_DATABASE_URL=https://hisobchi-c930c-default-rtdb.asia-southeast1.firebasedatabase.app
 ```
-*(Eslatma: agar `webapp_url` bo'sh qoldirilsa, bot o'zining ichki serveridagi `webapp/index.html` sahifasidan avtomatik foydalanadi).*
+*(Eslatma: `.env` fayli `.gitignore` ga kiritilgan, shuning uchun u hech qachon GitHub ga chiqib ketmaydi).*
 
 ### 3-qadam: Ishga tushirish
 Windows kompyuterda:
@@ -68,14 +67,16 @@ python bot.py
 
 ## ☁️ Render.com da 24/7 Bepul Joylash
 
-1. Ushbu `worker-bot` papkasini yangi GitHub repozitoriyga yuklang (yoki alohida branch sifatida).
+1. Ushbu `worker-bot` repozitoriyasini GitHub ga yuklang (`git push`).
 2. [Render.com](https://render.com) ga kiring: **New +** &rarr; **Web Service**.
-3. Repozitoriyingizni ulang.
-4. **Environment Variables** ga quyidagini kiriting:
-   - `WORKER_BOT_TOKEN` = Sizning bot tokeningiz
+3. GitHub repozitoriyangizni tanlang.
+4. Render loyiha ichidagi `render.yaml` ni avtomatik taniydi yoki qo'lda quyidagi **Environment Variables** ni kiritasiz:
+   - `WORKER_BOT_TOKEN` = Sizning bot tokeningiz (Secret)
    - `DEFAULT_COMPANY_ID` = `comp_novda`
    - `PORT` = `10000`
+   - `FIREBASE_DATABASE_URL` = `https://hisobchi-c930c-default-rtdb.asia-southeast1.firebasedatabase.app`
 5. **Create Web Service** tugmasini bosing.
+Render dasturni ishga tushiradi. `.env` fayli GitHub da yo'q bo'lsa ham, Render ushbu o'zgaruvchilarni bevosita xavfsiz muhitdan uzatadi!
 Bot 24/7 ishlaydi va o'zining Keep-Alive mexanizmi orqali uxlab qolmaydi!
 
 ---
