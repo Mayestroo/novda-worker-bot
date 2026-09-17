@@ -248,8 +248,16 @@ def get_worker_profile_and_stats(company_id, worker_id):
         ops = model.get("operations") or []
         op_rates = {op.get("name"): float(op.get("rate", 0)) for op in ops if isinstance(op, dict)}
         
-        hq = model.get("hisobQuantities") or {}
-        w_ops = hq.get(wid_str) or {}
+        hq = model.get("hisobQuantities")
+        w_ops = {}
+        wid_int = int(worker_id)
+        if isinstance(hq, dict):
+            w_ops = hq.get(wid_str) or hq.get(wid_int) or {}
+        elif isinstance(hq, list):
+            if 0 <= wid_int < len(hq) and hq[wid_int]:
+                w_ops = hq[wid_int]
+        if not isinstance(w_ops, dict):
+            w_ops = {}
 
         m_gross = 0.0
         m_pieces = 0.0
@@ -324,7 +332,12 @@ def get_worker_recent_tickets(company_id, worker_id, limit=6):
         if not isinstance(t, dict):
             continue
         entries = t.get("entries") or []
-        my_ops = [e.get("opName") for e in entries if isinstance(e, dict) and int(e.get("workerId", -1)) == wid_int]
+        def safe_wid(val):
+            try:
+                return int(val)
+            except (ValueError, TypeError):
+                return -1
+        my_ops = [e.get("opName") for e in entries if isinstance(e, dict) and safe_wid(e.get("workerId")) == wid_int]
         if my_ops:
             my_tickets.append({
                 "model_id": t.get("modelId") or "Model",
@@ -879,6 +892,9 @@ class WorkerHttpHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(b"Not found")
 
+    def do_HEAD(self):
+        self.do_GET()
+
     def log_message(self, format, *args):
         pass
 
@@ -937,6 +953,7 @@ def run_polling():
                         elif "callback_query" in update:
                             handle_callback_query(update["callback_query"])
         except Exception as e:
+            print(f"[{datetime.now().strftime('%H:%M:%S')}] [Polling Xatosi]: {e}")
             time.sleep(3)
 
 if __name__ == "__main__":
