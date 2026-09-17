@@ -95,18 +95,19 @@
     }
 
     .avatar-badge {
-      width: 44px;
-      height: 44px;
-      border-radius: 14px;
+      width: 48px;
+      height: 48px;
+      border-radius: 16px;
       background: linear-gradient(135deg, #10b981, #059669);
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 20px;
+      font-size: 22px;
       color: #ffffff;
       font-weight: 800;
-      box-shadow: 0 4px 12px rgba(5, 150, 105, 0.22);
+      box-shadow: 0 6px 18px rgba(5, 150, 105, 0.28);
       flex-shrink: 0;
+      letter-spacing: -1px;
     }
 
     .worker-meta {
@@ -120,7 +121,13 @@
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      line-height: 1.25;
+      line-height: 1.3;
+    }
+
+    .worker-subtitle {
+      font-size: 11.5px;
+      color: var(--text-muted);
+      margin-top: 1px;
     }
 
     .worker-id-pill {
@@ -130,10 +137,10 @@
       background: var(--accent-light);
       border: 1px solid var(--accent-border);
       color: #0369a1;
-      font-size: 11px;
+      font-size: 10.5px;
       font-weight: 700;
-      padding: 2px 8px;
-      border-radius: 8px;
+      padding: 2px 9px;
+      border-radius: 20px;
       margin-top: 3px;
     }
 
@@ -310,42 +317,8 @@
     .hero-grid-val.jarima { color: var(--danger); }
     .hero-grid-val.staj { color: var(--purple); }
 
-    /* Navigation Pills / Tabs */
-    .nav-tabs {
-      display: flex;
-      background: #e2e8f0;
-      border: 1px solid #cbd5e1;
-      border-radius: 14px;
-      padding: 4px;
-      margin-bottom: 16px;
-      gap: 4px;
-    }
-
-    .nav-tab-btn {
-      flex: 1;
-      padding: 10px 8px;
-      text-align: center;
-      background: transparent;
-      border: none;
-      color: var(--text-secondary);
-      font-family: inherit;
-      font-size: 12.5px;
-      font-weight: 700;
-      border-radius: 10px;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
-      transition: all 0.2s ease;
-    }
-
-    .nav-tab-btn.active {
-      background: #ffffff;
-      color: var(--accent);
-      border: 1px solid #e2e8f0;
-      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
-    }
+    /* Navigation Pills / Tabs — hidden, replaced by bottom nav */
+    .nav-tabs { display: none !important; }
 
     /* Section Title */
     .section-header {
@@ -580,16 +553,17 @@
       bottom: 0;
       left: 0;
       right: 0;
-      height: calc(64px + env(safe-area-inset-bottom, 0px));
+      height: calc(68px + env(safe-area-inset-bottom, 0px));
       padding-bottom: env(safe-area-inset-bottom, 0px);
       background: #ffffff !important;
-      backdrop-filter: blur(18px);
-      border-top: 2px solid var(--border);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-top: 1.5px solid #e2e8f0;
       display: flex !important;
       align-items: center;
       justify-content: space-around;
       z-index: 9999 !important;
-      box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.1);
+      box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.08);
       visibility: visible !important;
       opacity: 1 !important;
     }
@@ -598,42 +572,56 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: 3px;
+      gap: 4px;
       color: #94a3b8;
       text-decoration: none;
-      font-size: 11.5px;
+      font-size: 10.5px;
       font-weight: 700;
       position: relative;
       cursor: pointer;
       transition: all 0.2s ease;
       flex: 1;
       height: 100%;
-      padding: 6px 2px;
+      padding: 8px 4px;
       -webkit-tap-highlight-color: transparent;
       user-select: none;
       text-align: center;
+      border-radius: 0;
     }
     .nav-item:active {
-      transform: scale(0.92);
-      color: var(--text-primary);
+      transform: scale(0.9);
+      background: #f8fafc;
     }
     .nav-item.active {
       color: var(--accent) !important;
     }
-    .nav-item.active::before {
-      content: "";
-      position: absolute;
-      top: 0;
-      width: 32px;
-      height: 3px;
-      border-radius: 0 0 4px 4px;
-      background: var(--accent);
-      box-shadow: 0 2px 8px var(--accent);
+    .nav-item-icon-wrap {
+      position: relative;
+      width: 44px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 12px;
+      transition: all 0.2s ease;
+    }
+    .nav-item.active .nav-item-icon-wrap {
+      background: var(--accent-light);
     }
     .nav-item svg {
       width: 22px;
       height: 22px;
       stroke-width: 2.2;
+      transition: all 0.2s ease;
+    }
+    .nav-item.active svg {
+      stroke-width: 2.6;
+    }
+    .nav-label {
+      font-size: 10.5px;
+      font-weight: 700;
+      line-height: 1;
+      letter-spacing: 0.1px;
     }
   </style>
 
@@ -646,8 +634,9 @@
       <div class="worker-profile-brief">
         <div class="avatar-badge" id="avatarBadge">👤</div>
         <div class="worker-meta">
-          <div class="worker-name-title" id="workerNameHeader">Yuklanmoqda...</div>
-          <div class="worker-id-pill" id="workerIdBadge">ID: --</div>
+          <div class="worker-name-title" id="workerNameHeader">Xush kelibsiz!</div>
+          <div class="worker-subtitle">Shaxsiy ishchi portali</div>
+          <div class="worker-id-pill" id="workerIdBadge">⏳ Yuklanmoqda...</div>
         </div>
       </div>
       <div class="action-group">
@@ -674,10 +663,10 @@
     <section class="hero-kpi-card" id="heroCard">
       <div class="hero-label">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-        💰 QO'LGA TEGIShI (SOF MAOSH)
+        Joriy oylik sof maosh
       </div>
       <div class="hero-amount" id="netPayAmount">0 so'm</div>
-      <div class="hero-subtitle" id="netPaySubtitle">Avans va jarimalar hisoblangandan so'ng to'lanadigan sof pul</div>
+      <div class="hero-subtitle" id="netPaySubtitle">Avans va jarimalar ayirilgandan so'ng qo'lga tegadigan pul</div>
 
       <div class="hero-grid">
         <div class="hero-grid-item">
@@ -1028,7 +1017,9 @@
       const initial = (w.name || 'X').charAt(0).toUpperCase();
       document.getElementById('avatarBadge').textContent = initial;
       document.getElementById('workerNameHeader').textContent = w.name || `Ishchi #${w.id}`;
-      document.getElementById('workerIdBadge').textContent = `ID: #${w.id}`;
+      document.getElementById('workerIdBadge').textContent = `✅ ID: #${w.id}`;
+      const subtitleEl = document.getElementById('workerSubtitle');
+      if (subtitleEl) subtitleEl.textContent = 'Shaxsiy ishchi portali';
 
       const p = state.currentPeriod;
       if (p && p.name) {
@@ -1200,16 +1191,22 @@
   <!-- FIXED BOTTOM NAVIGATION BAR FOR WORKERS -->
   <nav class="bottom-nav">
     <a class="nav-item active" id="botNavOps" onclick="switchTab('ops')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="12" x2="12" y1="20" y2="10"/><line x1="18" x2="18" y1="20" y2="4"/><line x1="6" x2="6" y1="20" y2="16"/></svg>
-      <span>Ishlarim</span>
+      <div class="nav-item-icon-wrap">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="12" x2="12" y1="20" y2="10"/><line x1="18" x2="18" y1="20" y2="4"/><line x1="6" x2="6" y1="20" y2="16"/></svg>
+      </div>
+      <span class="nav-label">Ishlarim</span>
     </a>
     <a class="nav-item" id="botNavTickets" onclick="switchTab('tickets')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/><path d="M13 5v2"/><path d="M13 17v2"/><path d="M13 11v2"/></svg>
-      <span>Pattalarim</span>
+      <div class="nav-item-icon-wrap">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/><path d="M13 5v2"/><path d="M13 17v2"/><path d="M13 11v2"/></svg>
+      </div>
+      <span class="nav-label">Pattalarim</span>
     </a>
     <a class="nav-item" id="botNavAbout" onclick="switchTab('about')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
-      <span>Profilim</span>
+      <div class="nav-item-icon-wrap">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="8" r="4"/><path d="M6 20v-1a6 6 0 0 1 12 0v1"/></svg>
+      </div>
+      <span class="nav-label">Profilim</span>
     </a>
   </nav>
 </body>
