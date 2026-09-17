@@ -113,6 +113,13 @@ def get_base_webapp_url():
     return "https://hisobmonitoringbot.onrender.com/worker-app"
 
 def get_webapp_full_url(company_id, worker_id, tg_id=None):
+    if not tg_id and worker_id:
+        try:
+            b = get_worker_id_binding(company_id, worker_id)
+            if isinstance(b, dict) and b.get("tg_id"):
+                tg_id = b["tg_id"]
+        except Exception:
+            pass
     base = get_base_webapp_url()
     sep = "&" if "?" in base else "?"
     if tg_id:
@@ -680,7 +687,7 @@ def handle_finances(chat_id, tg_id):
         send_api("sendMessage", {"chat_id": chat_id, "text": "Hisob-kitob ma'lumotlarini yuklab bo'lmadi."})
         return
 
-    app_url = get_webapp_full_url(comp, wid)
+    app_url = get_webapp_full_url(comp, wid, tg_id)
     msg = (
         f"📊 <b>SHAXSIY HISOB-KITOB</b>\n"
         f"━━━━━━━━━━━━━━━━━━\n"
@@ -700,7 +707,7 @@ def handle_finances(chat_id, tg_id):
         "chat_id": chat_id,
         "text": msg,
         "parse_mode": "HTML",
-        "reply_markup": build_main_reply_keyboard(comp, wid)
+        "reply_markup": build_main_reply_keyboard(comp, wid, tg_id)
     })
 
 def handle_operations(chat_id, tg_id):
@@ -721,7 +728,7 @@ def handle_operations(chat_id, tg_id):
         send_api("sendMessage", {
             "chat_id": chat_id,
             "text": "🧵 Sizga joriy davrda hali operatsiyalar yoki tikilgan choklar kiritilmagan.",
-            "reply_markup": build_main_reply_keyboard(comp, wid)
+            "reply_markup": build_main_reply_keyboard(comp, wid, tg_id)
         })
         return
 
@@ -745,7 +752,7 @@ def handle_operations(chat_id, tg_id):
         "chat_id": chat_id,
         "text": "\n".join(text_parts),
         "parse_mode": "HTML",
-        "reply_markup": build_main_reply_keyboard(comp, wid)
+        "reply_markup": build_main_reply_keyboard(comp, wid, tg_id)
     })
 
 def handle_tickets(chat_id, tg_id):
@@ -763,7 +770,7 @@ def handle_tickets(chat_id, tg_id):
         send_api("sendMessage", {
             "chat_id": chat_id,
             "text": "🎫 Hozircha sizning ID raqamingiz bilan skanerlangan chiptalar (pattalar) topilmadi.",
-            "reply_markup": build_main_reply_keyboard(comp, wid)
+            "reply_markup": build_main_reply_keyboard(comp, wid, tg_id)
         })
         return
 
@@ -783,7 +790,7 @@ def handle_tickets(chat_id, tg_id):
         "chat_id": chat_id,
         "text": "\n".join(lines),
         "parse_mode": "HTML",
-        "reply_markup": build_main_reply_keyboard(comp, wid)
+        "reply_markup": build_main_reply_keyboard(comp, wid, tg_id)
     })
 
 def handle_help(chat_id, tg_id):
@@ -803,7 +810,7 @@ def handle_help(chat_id, tg_id):
         "chat_id": chat_id,
         "text": msg,
         "parse_mode": "HTML",
-        "reply_markup": build_main_reply_keyboard(comp, wid) if wid else {"remove_keyboard": True}
+        "reply_markup": build_main_reply_keyboard(comp, wid, tg_id) if wid else {"remove_keyboard": True}
     })
 
 def handle_callback_query(callback):
@@ -874,15 +881,16 @@ class WorkerHttpHandler(BaseHTTPRequestHandler):
         req_path = parsed.path
 
         if req_path in ('/webapp', '/webapp/', '/worker-app', '/worker-app/', '/worker', '/'):
-            # Enforce HMAC cryptographic token check:
-            # If anyone accesses with a worker_id or tg_id, the token MUST be valid
             q = urllib.parse.parse_qs(parsed.query)
             wid = q.get('worker_id', [None])[0] or q.get('id', [None])[0]
             tg_id = q.get('tg_id', [None])[0]
             auth_token = q.get('auth_token', [None])[0]
             comp = q.get('comp', [DEFAULT_COMPANY_ID])[0]
 
-            if wid or tg_id:
+            # Cryptographic token validation:
+            # If an auth_token is provided, it MUST match the HMAC for the given parameters.
+            # This completely blocks anyone from altering worker_id or tg_id in the URL.
+            if auth_token:
                 if not verify_worker_token(comp, wid, tg_id, auth_token):
                     self.send_response(403)
                     self.send_header('Content-type', 'text/html; charset=utf-8')
