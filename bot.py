@@ -88,6 +88,21 @@ FIREBASE_RTDB_URL = os.environ.get(
 # In-memory user states for registration flow
 user_states = {}
 
+import hmac
+import hashlib
+
+MASTER_SECRET = os.environ.get("MASTER_SECRET", "NOVDA_2026_MASTER_SECRET_SECURITY_SALT_KEY_HISOB_PROD")
+
+def generate_worker_token(company_id, worker_id, tg_id):
+    raw = f"{company_id}:{worker_id}:{tg_id}"
+    return hmac.new(MASTER_SECRET.encode('utf-8'), raw.encode('utf-8'), hashlib.sha256).hexdigest()
+
+def verify_worker_token(company_id, worker_id, tg_id, token):
+    if not token or not company_id or not worker_id or not tg_id:
+        return False
+    expected = generate_worker_token(company_id, worker_id, tg_id)
+    return hmac.compare_digest(expected, token)
+
 def get_base_webapp_url():
     if config.get("webapp_url"):
         return config["webapp_url"].rstrip('/')
@@ -97,9 +112,12 @@ def get_base_webapp_url():
     # Fallback to main render app if available
     return "https://hisobmonitoringbot.onrender.com/worker-app"
 
-def get_webapp_full_url(company_id, worker_id):
+def get_webapp_full_url(company_id, worker_id, tg_id=None):
     base = get_base_webapp_url()
     sep = "&" if "?" in base else "?"
+    if tg_id:
+        token = generate_worker_token(company_id, worker_id, tg_id)
+        return f"{base}{sep}worker_id={worker_id}&comp={company_id}&tg_id={tg_id}&auth_token={token}"
     return f"{base}{sep}worker_id={worker_id}&comp={company_id}"
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -377,8 +395,8 @@ def send_api(method, payload):
         return None
 
 
-def build_main_reply_keyboard(company_id, worker_id):
-    app_url = get_webapp_full_url(company_id, worker_id)
+def build_main_reply_keyboard(company_id, worker_id, tg_id=None):
+    app_url = get_webapp_full_url(company_id, worker_id, tg_id)
     return {
         "keyboard": [
             [
@@ -423,7 +441,7 @@ def handle_start(chat_id, user):
         name = binding.get("worker_name", f"Ishchi #{wid}")
 
         stats = get_worker_profile_and_stats(comp, wid)
-        app_url = get_webapp_full_url(comp, wid)
+        app_url = get_webapp_full_url(comp, wid, tg_id)
         net_text = format_money(stats["net"]) if stats else "Hisoblanmoqda..."
 
         msg = (
@@ -435,7 +453,7 @@ def handle_start(chat_id, user):
             f"👇 Quyidagi tugmalar orqali hisobotlaringiz bilan tanishing:"
         )
 
-        reply_markup = build_main_reply_keyboard(comp, wid)
+        reply_markup = build_main_reply_keyboard(comp, wid, tg_id)
         inline_markup = {
             "inline_keyboard": [
                 [
@@ -509,7 +527,7 @@ def handle_text_input(chat_id, user, text):
                 f"<i>Agar hisobni o'zgartirish zarur bo'lsa, korxona ustasi yoki ma'muriyatiga murojaat qiling.</i>"
             ),
             "parse_mode": "HTML",
-            "reply_markup": build_main_reply_keyboard(binding.get("company_id", DEFAULT_COMPANY_ID), wid)
+            "reply_markup": build_main_reply_keyboard(binding.get("company_id", DEFAULT_COMPANY_ID), wid, tg_id)
         })
         return
 
@@ -540,7 +558,7 @@ def handle_text_input(chat_id, user, text):
                 f"Quyidagi tugmalar orqali o'z oylik hisob-kitoblaringizni ko'rishingiz mumkin:"
             ),
             "parse_mode": "HTML",
-            "reply_markup": build_main_reply_keyboard(DEFAULT_COMPANY_ID, cid)
+            "reply_markup": build_main_reply_keyboard(DEFAULT_COMPANY_ID, cid, tg_id)
         })
         return
 
@@ -836,7 +854,7 @@ def handle_callback_query(callback):
                 f"Endi pastdagi menyu orqali faqat o'zingizning oyligingiz va ishlaringizni ko'rishingiz mumkin 👇"
             ),
             "parse_mode": "HTML",
-            "reply_markup": build_main_reply_keyboard(DEFAULT_COMPANY_ID, wid)
+            "reply_markup": build_main_reply_keyboard(DEFAULT_COMPANY_ID, wid, tg_id)
         })
 
     elif data == "cancel_worker":
@@ -856,6 +874,29 @@ class WorkerHttpHandler(BaseHTTPRequestHandler):
         req_path = parsed.path
 
         if req_path in ('/webapp', '/webapp/', '/worker-app', '/worker-app/', '/worker', '/'):
+            # Enforce HMAC cryptographic token check:
+            # If anyone accesses with a worker_id or tg_id, the token MUST be valid
+            q = urllib.parse.parse_qs(parsed.query)
+            wid = q.get('worker_id', [None])[0] or q.get('id', [None])[0]
+            tg_id = q.get('tg_id', [None])[0]
+            auth_token = q.get('auth_token', [None])[0]
+            comp = q.get('comp', [DEFAULT_COMPANY_ID])[0]
+
+            if wid or tg_id:
+                if not verify_worker_token(comp, wid, tg_id, auth_token):
+                    self.send_response(403)
+                    self.send_header('Content-type', 'text/html; charset=utf-8')
+                    self.send_header('Access-Control-Allow-Origin', '*')
+                    self.end_headers()
+                    err_html = """<!DOCTYPE html><html lang="uz"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Xavfsizlik Cheklovi</title></head>
+                    <body style="font-family:-apple-system,BlinkMacSystemFont,sans-serif;text-align:center;padding:50px 20px;background:#f8fafc;color:#0f172a;">
+                    <div style="font-size:56px;margin-bottom:16px;">⛔</div>
+                    <h2 style="color:#dc2626;margin-bottom:8px;">Xavfsizlik Cheklovi</h2>
+                    <p style="font-size:15px;line-height:1.5;color:#334155;max-width:400px;margin:0 auto 12px;">Ruxsatsiz yoki o'zgartirilgan parametrlar bilan kirish taqiqlangan.</p>
+                    <p style="font-size:13px;color:#64748b;">Iltimos, faqat o'zingizning rasmiy Telegram botingizdagi tugma orqali kiring.</p>
+                    </body></html>"""
+                    self.wfile.write(err_html.encode('utf-8'))
+                    return
             html_candidates = [
                 os.path.join(CURRENT_DIR, 'webapp', 'index.html'),
                 os.path.join(CURRENT_DIR, 'webapp', 'worker.html'),

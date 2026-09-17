@@ -873,35 +873,51 @@
       if (state.isLoading) return;
       state.isLoading = true;
       const refreshBtn = document.getElementById('refreshBtn');
-      refreshBtn.classList.add('spinning');
-
+      if (refreshBtn) refreshBtn.classList.add('spinning');
       try {
-        // 1. Identify Telegram user if available
+        // 1. URL dan parametrlar olinadi
+        const paramTgId = urlParams.get('tg_id');
+        const authToken = urlParams.get('auth_token');
+        const paramWorkerId = urlParams.get('worker_id') || urlParams.get('id');
+
         const tgUser = tg?.initDataUnsafe?.user;
-        const tgId = tgUser?.id;
+        const currentTgId = tgUser?.id ? String(tgUser.id) : (paramTgId ? String(paramTgId) : null);
 
-        if (tgId) {
-          try {
-            const bRes = await fetch(`${FIREBASE_BASE_URL}/worker_telegram_bindings/${tgId}.json`);
-            if (bRes.ok) {
-              const bData = await bRes.json();
-              if (bData && bData.worker_id) {
-                state.workerId = Number(bData.worker_id);
-                if (bData.company_id) state.companyId = bData.company_id;
-              }
-            }
-          } catch (e) {
-            console.warn('Binding lookup error:', e);
+        if (!currentTgId) {
+          renderError("Xavfsizlik cheklovi: Ushbu sahifaga faqat rasmiy Telegram botdagi tugma orqali kirish mumkin.");
+          return;
+        }
+
+        // 2. Agar Telegram ichida ochilgan bo'lsa, havoladagi tg_id joriy akkauntga mosligini tekshirish
+        if (tgUser?.id && paramTgId && String(tgUser.id) !== String(paramTgId)) {
+          renderError("Xavfsizlik cheklovi: Ushbu havola boshqa Telegram akkauntiga tegishli! Birovning hisobiga kirish taqiqlangan.");
+          return;
+        }
+
+        // 3. Bazadagi haqiqiy biriktirilgan hisobni tekshirish (URL dagi worker_id ga HECH QACHON ko'r-ko'rona ishonilmaydi!)
+        try {
+          const bRes = await fetch(`${FIREBASE_BASE_URL}/worker_telegram_bindings/${currentTgId}.json`);
+          if (!bRes.ok) {
+            renderError("Xavfsizlik xatosi: Ma'lumotlar bazasi bilan ulanib bo'lmadi.");
+            return;
           }
-        }
+          const bData = await bRes.json();
+          if (!bData || !bData.worker_id) {
+            renderError("Sizning Telegram hisobingizga ishchi ID biriktirilmagan. Iltimos botdan /start bosib ID raqamingizni kiriting.");
+            return;
+          }
 
-        // 2. Fallback to URL parameter if opened via bot link or desktop TMA
-        if (!state.workerId && targetWorkerId) {
-          state.workerId = Number(targetWorkerId);
-        }
+          // Agar URL orqali boshqa ishchi ID sini kiritib ko'rmoqchi bo'lsa -> fail-closed bloklanadi!
+          if (paramWorkerId && Number(bData.worker_id) !== Number(paramWorkerId)) {
+            renderError("Xavfsizlik cheklovi: Begona ishchining ma'lumotlarini ko'rish qat'iyan taqiqlangan!");
+            return;
+          }
 
-        if (!state.workerId) {
-          renderError("Xodim hisobi aniqlanmadi. Iltimos botdan /start bosib shaxsiy profilingizga kiring.");
+          state.workerId = Number(bData.worker_id);
+          if (bData.company_id) state.companyId = bData.company_id;
+        } catch (e) {
+          console.warn('Binding lookup error:', e);
+          renderError("Internet aloqasini tekshiring.");
           return;
         }
 
