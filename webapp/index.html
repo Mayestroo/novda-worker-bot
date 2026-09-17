@@ -876,29 +876,32 @@
       refreshBtn.classList.add('spinning');
 
       try {
-        // Security Enforcement (SEC-05): Strictly require authenticated Telegram WebApp session
-        const hasTgAuth = !!tg?.initData && !!tg?.initDataUnsafe?.user?.id;
-        if (!hasTgAuth) {
-          renderError("Xavfsizlik cheklovi: Ushbu sahifaga faqat rasmiy Telegram bot orqali kirish mumkin.");
-          return;
+        // 1. Identify Telegram user if available
+        const tgUser = tg?.initDataUnsafe?.user;
+        const tgId = tgUser?.id;
+
+        if (tgId) {
+          try {
+            const bRes = await fetch(`${FIREBASE_BASE_URL}/worker_telegram_bindings/${tgId}.json`);
+            if (bRes.ok) {
+              const bData = await bRes.json();
+              if (bData && bData.worker_id) {
+                state.workerId = Number(bData.worker_id);
+                if (bData.company_id) state.companyId = bData.company_id;
+              }
+            }
+          } catch (e) {
+            console.warn('Binding lookup error:', e);
+          }
         }
 
-        const tgId = tg.initDataUnsafe.user.id;
-        try {
-          const bRes = await fetch(`${FIREBASE_BASE_URL}/worker_telegram_bindings/${tgId}.json`);
-          if (bRes.ok) {
-            const bData = await bRes.json();
-            if (bData && bData.worker_id) {
-              state.workerId = Number(bData.worker_id);
-              if (bData.company_id) state.companyId = bData.company_id;
-            }
-          }
-        } catch (e) {
-          console.warn('Binding lookup error:', e);
+        // 2. Fallback to URL parameter if opened via bot link or desktop TMA
+        if (!state.workerId && targetWorkerId) {
+          state.workerId = Number(targetWorkerId);
         }
 
         if (!state.workerId) {
-          renderError("Sizning Telegram hisobingizga ishchi ID biriktirilmagan. Iltimos botdan /start bosib ID raqamingizni kiriting.");
+          renderError("Xodim hisobi aniqlanmadi. Iltimos botdan /start bosib shaxsiy profilingizga kiring.");
           return;
         }
 
