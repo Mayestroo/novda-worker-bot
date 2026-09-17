@@ -778,6 +778,16 @@
       return (Number(num) || 0).toLocaleString('uz-UZ');
     }
 
+    function escapeHtml(str) {
+      if (str == null) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
     // Switch Tabs
     window.switchTab = function(tabName) {
       triggerHaptic('light');
@@ -807,26 +817,29 @@
       refreshBtn.classList.add('spinning');
 
       try {
-        // Security Enforcement: If inside Telegram, always enforce the verified Telegram user binding!
-        if (tg?.initDataUnsafe?.user?.id) {
-          try {
-            const tgId = tg.initDataUnsafe.user.id;
-            const bRes = await fetch(`${FIREBASE_BASE_URL}/worker_telegram_bindings/${tgId}.json`);
-            if (bRes.ok) {
-              const bData = await bRes.json();
-              if (bData && bData.worker_id) {
-                // Strictly lock to bound worker ID — prevents URL parameter tampering
-                state.workerId = Number(bData.worker_id);
-                if (bData.company_id) state.companyId = bData.company_id;
-              }
+        // Security Enforcement (SEC-05): Strictly require authenticated Telegram WebApp session
+        const hasTgAuth = !!tg?.initData && !!tg?.initDataUnsafe?.user?.id;
+        if (!hasTgAuth) {
+          renderError("Xavfsizlik cheklovi: Ushbu sahifaga faqat rasmiy Telegram bot orqali kirish mumkin.");
+          return;
+        }
+
+        const tgId = tg.initDataUnsafe.user.id;
+        try {
+          const bRes = await fetch(`${FIREBASE_BASE_URL}/worker_telegram_bindings/${tgId}.json`);
+          if (bRes.ok) {
+            const bData = await bRes.json();
+            if (bData && bData.worker_id) {
+              state.workerId = Number(bData.worker_id);
+              if (bData.company_id) state.companyId = bData.company_id;
             }
-          } catch (e) {
-            console.warn('Binding lookup error:', e);
           }
+        } catch (e) {
+          console.warn('Binding lookup error:', e);
         }
 
         if (!state.workerId) {
-          renderError("Xodim ID raqami topilmadi. Iltimos botdan qaytadan /start bosib kiring.");
+          renderError("Sizning Telegram hisobingizga ishchi ID biriktirilmagan. Iltimos botdan /start bosib ID raqamingizni kiriting.");
           return;
         }
 
@@ -997,113 +1010,113 @@
         return;
       }
 
-      let html = '';
-      for (const mId of keys) {
-        const m = mb[mId];
-        let opsHtml = '';
-        for (const op of m.operations) {
-          opsHtml += `
-            <div class="op-row">
-              <div class="op-info">
-                <span class="op-name">${op.name}</span>
-                <span class="op-rate-note">${formatNumber(op.rate)} so'm / dona</span>
+        let html = '';
+        for (const mId of keys) {
+          const m = mb[mId];
+          let opsHtml = '';
+          for (const op of m.operations) {
+            opsHtml += `
+              <div class="op-row">
+                <div class="op-info">
+                  <span class="op-name">${escapeHtml(op.name)}</span>
+                  <span class="op-rate-note">${formatNumber(op.rate)} so'm / dona</span>
+                </div>
+                <div class="op-calc">
+                  <div><span class="op-qty-tag">${formatNumber(op.qty)} dona</span></div>
+                  <div class="op-sum-val">${formatMoney(op.amount)}</div>
+                </div>
               </div>
-              <div class="op-calc">
-                <div><span class="op-qty-tag">${formatNumber(op.qty)} dona</span></div>
-                <div class="op-sum-val">${formatMoney(op.amount)}</div>
+            `;
+          }
+
+          html += `
+            <div class="model-card">
+              <div class="model-header">
+                <div class="model-title">
+                  <span>👗</span>
+                  <span>${escapeHtml(m.name)}</span>
+                </div>
+                <div class="model-total-badge">${formatMoney(m.earnings)}</div>
               </div>
+              <div>${opsHtml}</div>
             </div>
           `;
         }
+        listEl.innerHTML = html;
+      }
 
-        html += `
-          <div class="model-card">
-            <div class="model-header">
-              <div class="model-title">
-                <span>👗</span>
-                <span>${m.name}</span>
+      // Fetch and render tickets that belong to this worker
+      async function fetchWorkerTickets() {
+        const ticketsListEl = document.getElementById('ticketsList');
+        try {
+          const res = await fetch(`${FIREBASE_BASE_URL}/companies/${state.companyId}/syncData/submittedTickets.json`);
+          if (!res.ok) throw new Error('Tickets fetch failed');
+          const tickets = await res.json();
+          
+          const allTickets = Array.isArray(tickets) ? tickets : Object.values(tickets || {});
+          
+          // Filter ONLY tickets where this worker participated
+          const myTickets = allTickets.filter(t => 
+            Array.isArray(t.entries) && t.entries.some(e => Number(e.workerId) === state.workerId)
+          ).reverse();
+
+          state.submittedTickets = myTickets;
+          document.getElementById('ticketsCountBadge').textContent = myTickets.length;
+
+          if (!myTickets.length) {
+            ticketsListEl.innerHTML = `
+              <div class="empty-state">
+                <div class="empty-state-icon">🎫</div>
+                <div style="font-weight: 700; color: var(--text-primary); margin-bottom: 4px;">Topshirilgan pattalar yo'q</div>
+                <div>Hozircha sizning ID raqamingiz bilan skanerlangan chiptalar mavjud emas.</div>
               </div>
-              <div class="model-total-badge">${formatMoney(m.earnings)}</div>
-            </div>
-            <div>${opsHtml}</div>
+            `;
+            return;
+          }
+
+          let html = '';
+          for (const t of myTickets.slice(0, 50)) { // show latest 50
+            const myOps = t.entries
+              .filter(e => Number(e.workerId) === state.workerId)
+              .map(e => escapeHtml(e.opName))
+              .join(', ');
+
+            html += `
+              <div class="ticket-item">
+                <div class="ticket-top">
+                  <span class="ticket-badge-id">${escapeHtml(t.modelId || 'Model')} &bull; Patta #${escapeHtml(t.pattaNumber || 1)}</span>
+                  <span class="ticket-time">⏱️ ${escapeHtml(t.submittedAt || '')}</span>
+                </div>
+                <div class="ticket-tags">
+                  <span class="ticket-tag">Partiya: ${escapeHtml(t.partyNumber || '-')}</span>
+                  <span class="ticket-tag">Razmer: ${escapeHtml(t.size || '-')}</span>
+                  <span class="ticket-tag">Rang: ${escapeHtml(t.color || '-')}</span>
+                  <span class="ticket-tag" style="color: var(--success); font-weight: 700;">Soni: ${formatNumber(t.qty || 0)} dona</span>
+                </div>
+                <div class="ticket-my-op">
+                  <span>Bajarilgan chok:</span>
+                  <span style="font-weight: 700; color: var(--accent);">${myOps || 'Tikuv'}</span>
+                </div>
+              </div>
+            `;
+          }
+          ticketsListEl.innerHTML = html;
+
+        } catch (e) {
+          console.warn('Tickets error:', e);
+          ticketsListEl.innerHTML = '<div class="empty-state">Pattalarni yuklashda xatolik yuz berdi.</div>';
+        }
+      }
+
+      function renderError(msg) {
+        document.getElementById('modelsBreakdownList').innerHTML = `
+          <div class="empty-state">
+            <div class="empty-state-icon">⚠️</div>
+            <div style="font-weight: 700; color: var(--danger); margin-bottom: 6px;">Xatolik</div>
+            <div>${escapeHtml(msg)}</div>
           </div>
         `;
       }
-      listEl.innerHTML = html;
-    }
-
-    // Fetch and render tickets that belong to this worker
-    async function fetchWorkerTickets() {
-      const ticketsListEl = document.getElementById('ticketsList');
-      try {
-        const res = await fetch(`${FIREBASE_BASE_URL}/companies/${state.companyId}/syncData/submittedTickets.json`);
-        if (!res.ok) throw new Error('Tickets fetch failed');
-        const tickets = await res.json();
-        
-        const allTickets = Array.isArray(tickets) ? tickets : Object.values(tickets || {});
-        
-        // Filter ONLY tickets where this worker participated
-        const myTickets = allTickets.filter(t => 
-          Array.isArray(t.entries) && t.entries.some(e => Number(e.workerId) === state.workerId)
-        ).reverse();
-
-        state.submittedTickets = myTickets;
-        document.getElementById('ticketsCountBadge').textContent = myTickets.length;
-
-        if (!myTickets.length) {
-          ticketsListEl.innerHTML = `
-            <div class="empty-state">
-              <div class="empty-state-icon">🎫</div>
-              <div style="font-weight: 700; color: var(--text-primary); margin-bottom: 4px;">Topshirilgan pattalar yo'q</div>
-              <div>Hozircha sizning ID raqamingiz bilan skanerlangan chiptalar mavjud emas.</div>
-            </div>
-          `;
-          return;
-        }
-
-        let html = '';
-        for (const t of myTickets.slice(0, 50)) { // show latest 50
-          const myOps = t.entries
-            .filter(e => Number(e.workerId) === state.workerId)
-            .map(e => e.opName)
-            .join(', ');
-
-          html += `
-            <div class="ticket-item">
-              <div class="ticket-top">
-                <span class="ticket-badge-id">${t.modelId || 'Model'} &bull; Patta #${t.pattaNumber || 1}</span>
-                <span class="ticket-time">⏱️ ${t.submittedAt || ''}</span>
-              </div>
-              <div class="ticket-tags">
-                <span class="ticket-tag">Partiya: ${t.partyNumber || '-'}</span>
-                <span class="ticket-tag">Razmer: ${t.size || '-'}</span>
-                <span class="ticket-tag">Rang: ${t.color || '-'}</span>
-                <span class="ticket-tag" style="color: var(--success); font-weight: 700;">Soni: ${t.qty || 0} dona</span>
-              </div>
-              <div class="ticket-my-op">
-                <span>Bajarilgan chok:</span>
-                <span style="font-weight: 700; color: var(--accent);">${myOps || 'Tikuv'}</span>
-              </div>
-            </div>
-          `;
-        }
-        ticketsListEl.innerHTML = html;
-
-      } catch (e) {
-        console.warn('Tickets error:', e);
-        ticketsListEl.innerHTML = '<div class="empty-state">Pattalarni yuklashda xatolik yuz berdi.</div>';
-      }
-    }
-
-    function renderError(msg) {
-      document.getElementById('modelsBreakdownList').innerHTML = `
-        <div class="empty-state">
-          <div class="empty-state-icon">⚠️</div>
-          <div style="font-weight: 700; color: var(--danger); margin-bottom: 6px;">Xatolik</div>
-          <div>${msg}</div>
-        </div>
-      `;
-    }
 
     // Event Listeners
     document.getElementById('refreshBtn').addEventListener('click', () => {

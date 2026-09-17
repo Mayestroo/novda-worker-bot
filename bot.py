@@ -16,6 +16,7 @@ import os
 import json
 import time
 import re
+import html
 import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from datetime import datetime
@@ -282,9 +283,17 @@ def get_worker_profile_and_stats(company_id, worker_id):
             total_gross += m_gross
             total_pieces += m_pieces
 
-    avans = float(worker.get("avans") or 0.0)
-    jarima = float(worker.get("jarima") or 0.0)
-    staj = float(worker.get("staj") or 0.0)
+    import math
+    def safe_num(val):
+        try:
+            f = float(val or 0.0)
+            return f if math.isfinite(f) else 0.0
+        except (ValueError, TypeError):
+            return 0.0
+
+    avans = max(0.0, safe_num(worker.get("avans")))
+    jarima = max(0.0, safe_num(worker.get("jarima")))
+    staj = max(0.0, safe_num(worker.get("staj")))
     net_pay = total_gross - avans - jarima - staj
 
     return {
@@ -384,6 +393,9 @@ def format_money(amt):
 def format_number(amt):
     return f"{int(round(amt)):,}".replace(",", " ")
 
+def escape_html(value):
+    return html.escape(str(value), quote=True)
+
 # ─────────────────────────────────────────────────────────────────────────────
 # BOT MESSAGE & CALLBACK HANDLERS
 # ─────────────────────────────────────────────────────────────────────────────
@@ -402,7 +414,7 @@ def handle_start(chat_id, user):
         net_text = format_money(stats["net"]) if stats else "Hisoblanmoqda..."
 
         msg = (
-            f"👋 <b>Assalomu alaykum, {name}!</b>\n\n"
+            f"👋 <b>Assalomu alaykum, {escape_html(name)}!</b>\n\n"
             f"🆔 <b>Sizning ID:</b> #{wid}\n"
             f"💵 <b>Qo'lga tegadigan Sof Foyda:</b> <code>{net_text}</code>\n\n"
             f"🔒 <i>Ushbu bot sizning ID #{wid} hisobingizga doimiy biriktirilgan. "
@@ -479,7 +491,7 @@ def handle_text_input(chat_id, user, text):
             "chat_id": chat_id,
             "text": (
                 f"🔒 <b>Xavfsizlik qoidasi:</b>\n\n"
-                f"Siz allaqachon <b>#{wid} ({wname})</b> hisobiga doimiy biriktirilgansiz.\n"
+                f"Siz allaqachon <b>#{wid} ({escape_html(wname)})</b> hisobiga doimiy biriktirilgansiz.\n"
                 f"Boshqa xodimlar hisob-kitobini ko'rish yoki hisobdan chiqish taqiqlangan.\n\n"
                 f"<i>Agar hisobni o'zgartirish zarur bo'lsa, korxona ustasi yoki ma'muriyatiga murojaat qiling.</i>"
             ),
@@ -491,6 +503,33 @@ def handle_text_input(chat_id, user, text):
     # If NOT bound yet:
     state = user_states.get(tg_id, {})
     step = state.get("step")
+
+    if step == "AWAITING_PIN":
+        expected_pin = state.get("expected_pin", "")
+        entered_pin = text.strip()
+        if entered_pin != expected_pin:
+            send_api("sendMessage", {
+                "chat_id": chat_id,
+                "text": "❌ <b>Noto'g'ri PIN-kod!</b> Iltimos qaytadan urinib ko'ring yoki /start bosib boshidan boshlang:",
+                "parse_mode": "HTML"
+            })
+            return
+        cid = state.get("candidate_id")
+        wname = state.get("candidate_name")
+        save_worker_binding(tg_id, cid, wname, DEFAULT_COMPANY_ID, user.get("username", ""))
+        user_states.pop(tg_id, None)
+        send_api("sendMessage", {
+            "chat_id": chat_id,
+            "text": (
+                f"🎉 <b>Tabriklaymiz, profilingiz muvaffaqiyatli bog'landi!</b>\n━━━━━━━━━━━━━━━━━━━━\n"
+                f"🆔 <b>Ishchi ID:</b> #{cid}\n"
+                f"👤 <b>F.I.O:</b> {escape_html(wname)}\n\n"
+                f"Quyidagi tugmalar orqali o'z oylik hisob-kitoblaringizni ko'rishingiz mumkin:"
+            ),
+            "parse_mode": "HTML",
+            "reply_markup": build_main_reply_keyboard(DEFAULT_COMPANY_ID, cid)
+        })
+        return
 
     if step == "WAITING_WORKER_ID" or not binding:
         digits = re.findall(r'\d+', text)
@@ -545,6 +584,24 @@ def handle_text_input(chat_id, user, text):
             return
 
         w_name = worker.get("name", f"Ishchi #{candidate_id}")
+        worker_pin = str(worker.get("pin") or worker.get("code") or "").strip()
+        if worker_pin:
+            user_states[tg_id] = {
+                "step": "AWAITING_PIN",
+                "candidate_id": candidate_id,
+                "candidate_name": w_name,
+                "expected_pin": worker_pin
+            }
+            send_api("sendMessage", {
+                "chat_id": chat_id,
+                "text": (
+                    f"👤 <b>Xodim:</b> {escape_html(w_name)} (#{candidate_id})\n\n"
+                    f"🔒 Ushbu hisobni biriktirish uchun ustangiz yoki ma'muriyat tomonidan berilgan <b>maxfiy PIN-kodni</b> kiriting:"
+                ),
+                "parse_mode": "HTML"
+            })
+            return
+
         user_states[tg_id] = {
             "step": "CONFIRMING",
             "candidate_id": candidate_id,
@@ -554,7 +611,7 @@ def handle_text_input(chat_id, user, text):
         msg = (
             f"👤 <b>Xodim topildi:</b>\n\n"
             f"🆔 <b>Ishchi ID:</b> #{candidate_id}\n"
-            f"📝 <b>F.I.O:</b> {w_name}\n\n"
+            f"📝 <b>F.I.O:</b> {escape_html(w_name)}\n\n"
             f"Ushbu hisob-kitob <b>rostdan ham sizga tegishlimi?</b>\n"
             f"<i>Tasdiqlaganingizdan so'ng hisob profilingizga doimiy bog'lanadi.</i>"
         )
@@ -596,8 +653,8 @@ def handle_finances(chat_id, tg_id):
     msg = (
         f"📊 <b>SHAXSIY HISOB-KITOB</b>\n"
         f"━━━━━━━━━━━━━━━━━━\n"
-        f"👤 <b>Xodim:</b> {stats['worker_name']} (ID: #{wid})\n"
-        f"📅 <b>Davr:</b> {stats['period_name']}\n\n"
+        f"👤 <b>Xodim:</b> {escape_html(stats['worker_name'])} (ID: #{wid})\n"
+        f"📅 <b>Davr:</b> {escape_html(stats['period_name'])}\n\n"
         f"💵 <b>Jami ishlangan:</b> {format_money(stats['gross'])}\n"
         f"➖ <b>Olingan avans:</b> {format_money(stats['avans'])}\n"
         f"➖ <b>Jarima / Ushlanma:</b> {format_money(stats['jarima'])}\n"
@@ -639,15 +696,15 @@ def handle_operations(chat_id, tg_id):
 
     text_parts = [
         f"📋 <b>BAJARILGAN ISHLAR TAFSILOTI</b>\n"
-        f"👤 {stats['worker_name']} (ID: #{wid})\n"
+        f"👤 {escape_html(stats['worker_name'])} (ID: #{wid})\n"
         f"━━━━━━━━━━━━━━━━━━"
     ]
 
     for m_id, m in mb.items():
-        text_parts.append(f"\n👗 <b>{m['name']}</b>: <code>{format_money(m['earnings'])}</code>")
+        text_parts.append(f"\n👗 <b>{escape_html(m['name'])}</b>: <code>{format_money(m['earnings'])}</code>")
         for op in m["operations"]:
             text_parts.append(
-                f"  • {op['name']}: {format_number(op['qty'])} dona × {format_number(op['rate'])} so'm = <b>{format_money(op['amount'])}</b>"
+                f"  • {escape_html(op['name'])}: {format_number(op['qty'])} dona × {format_number(op['rate'])} so'm = <b>{format_money(op['amount'])}</b>"
             )
 
     text_parts.append("\n━━━━━━━━━━━━━━━━━━")
@@ -685,10 +742,10 @@ def handle_tickets(chat_id, tg_id):
     ]
     for t in tickets:
         lines.append(
-            f"🏷 <b>{t['model_id']}</b> (Patta #{t['patta_number']})\n"
-            f"Partiya: {t['party_number']} | Razmer: {t['size']} | Rang: {t['color']}\n"
-            f"🧵 Chok: <b>{t['my_operations']}</b>\n"
-            f"📦 Soni: <b>{t['qty']} dona</b> | ⏱️ {t['submitted_at']}\n"
+            f"🏷 <b>{escape_html(t['model_id'])}</b> (Patta #{t['patta_number']})\n"
+            f"Partiya: {escape_html(t['party_number'])} | Razmer: {escape_html(t['size'])} | Rang: {escape_html(t['color'])}\n"
+            f"🧵 Chok: <b>{escape_html(t['my_operations'])}</b>\n"
+            f"📦 Soni: <b>{t['qty']} dona</b> | ⏱️ {escape_html(t['submitted_at'])}\n"
         )
 
     send_api("sendMessage", {
@@ -760,7 +817,7 @@ def handle_callback_query(callback):
             "chat_id": chat_id,
             "text": (
                 f"🎉 <b>Tabriklaymiz!</b> Siz muvaffaqiyatli biriktirildingiz.\n\n"
-                f"👤 <b>Xodim:</b> {w_name}\n"
+                f"👤 <b>Xodim:</b> {escape_html(w_name)}\n"
                 f"🆔 <b>ID:</b> #{wid}\n\n"
                 f"🔒 <i>Ushbu hisob Telegram profilingizga biriktirildi. Boshqa ishchilar raqamini kiritib ko'rish imkoni yo'q.</i>\n\n"
                 f"Endi pastdagi menyu orqali faqat o'zingizning oyligingiz va ishlaringizni ko'rishingiz mumkin 👇"
